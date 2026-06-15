@@ -19,6 +19,7 @@ export default function Contacts() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [navWidth, setNavWidth] = useState(280);
+  const [tooltip, setTooltip] = useState(null);
   const isResizing = useRef(false);
 
   useEffect(() => {
@@ -112,6 +113,11 @@ export default function Contacts() {
                   key={r.recordId}
                   className={`ct-list-item ${selected?.recordId === r.recordId ? 'active' : ''}`}
                   onClick={() => handleSelect(r)}
+                  onMouseEnter={e => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setTooltip({ r, x: rect.right + 8, y: rect.top });
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
                 >
                   <span className="ct-item-dot" style={{ background: color }} />
                   <div className="ct-item-text">
@@ -127,6 +133,24 @@ export default function Contacts() {
 
       {/* Resize handle */}
       <div className="ct-resize-handle" onMouseDown={startResize} />
+
+      {/* List item hover tooltip */}
+      {tooltip && (
+        <div className="ct-hover-tooltip" style={{ top: tooltip.y, left: tooltip.x }}>
+          {tooltip.r.fieldData['Name_Organization'] && (
+            <div className="ct-ht-row">
+              <span className="ct-ht-label">Org</span>
+              <span className="ct-ht-value">{tooltip.r.fieldData['Name_Organization']}</span>
+            </div>
+          )}
+          {tooltip.r.fieldData['cntct_ADDR::Type'] && (
+            <div className="ct-ht-row">
+              <span className="ct-ht-label">Addr Type</span>
+              <span className="ct-ht-value">{tooltip.r.fieldData['cntct_ADDR::Type']}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main */}
       <main className="ct-main">

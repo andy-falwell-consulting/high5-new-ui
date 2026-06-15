@@ -273,3 +273,40 @@
 [data-theme="light"] .ct-table td { color: #64748b; border-bottom-color: #f1f5f9; }
 [data-theme="light"] .ct-table tr:hover td { background: #f8fafc; }
 [data-theme="light"] .ct-skeleton { background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; }
+
+/* ── List item hover tooltip ─────────────────────────────────── */
+.ct-hover-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: #1e2130;
+  border: 1px solid #2a2f45;
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+.ct-ht-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+.ct-ht-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #475569;
+  flex-shrink: 0;
+}
+.ct-ht-value {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+[data-theme="light"] .ct-hover-tooltip {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+[data-theme="light"] .ct-ht-value { color: #334155; }
