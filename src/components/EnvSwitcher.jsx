@@ -18,9 +18,9 @@ const ENV_THEME = {
   },
 }
 
-export default function EnvSwitcher() {
+export default function EnvSwitcher({ theme, onToggleTheme }) {
   const currentId = getCurrentEnvId()
-  const theme = ENV_THEME[currentId] ?? ENV_THEME.development
+  const envTheme = ENV_THEME[currentId] ?? ENV_THEME.development
 
   function handleChange(e) {
     setCurrentEnvId(e.target.value)
@@ -31,8 +31,8 @@ export default function EnvSwitcher() {
     <div style={{
       display: 'flex', alignItems: 'center',
       padding: '5px 12px',
-      background: theme.bg,
-      borderBottom: `1px solid ${theme.border}`,
+      background: envTheme.bg,
+      borderBottom: `1px solid ${envTheme.border}`,
       fontSize: 12,
     }}>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -53,16 +53,27 @@ export default function EnvSwitcher() {
         <span style={{
           fontSize: 10, fontWeight: 700, padding: '2px 7px',
           borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.06em',
-          background: theme.badgeBg, color: theme.badgeColor,
+          background: envTheme.badgeBg, color: envTheme.badgeColor,
         }}>
           {currentId}
         </span>
-        {theme.label && (
-          <span style={{ color: theme.badgeColor, fontSize: 11, fontWeight: 600 }}>
-            {theme.label}
+        {envTheme.label && (
+          <span style={{ color: envTheme.badgeColor, fontSize: 11, fontWeight: 600 }}>
+            {envTheme.label}
           </span>
         )}
       </div>
+      <button
+        onClick={onToggleTheme}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 14, padding: '2px 6px', marginRight: 8,
+          opacity: 0.7, lineHeight: 1,
+        }}
+      >
+        {theme === 'dark' ? '☀️' : '🌙'}
+      </button>
       <span style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.05em' }}>
         v{__APP_VERSION__}
       </span>

@@ -1,14 +1,15 @@
 import { useState } from 'react'
 
-export default function NavRail({ modules, activeId, onSelect }) {
+export default function NavRail({ modules, activeId, onSelect, theme }) {
   const [expanded, setExpanded] = useState(true)
+  const light = theme === 'light'
 
   return (
     <div style={{
       width: expanded ? 180 : 48,
       flexShrink: 0,
-      background: '#0b0d14',
-      borderRight: '1px solid #1e2130',
+      background: light ? '#f1f5f9' : '#0b0d14',
+      borderRight: `1px solid ${light ? '#e2e8f0' : '#1e2130'}`,
       display: 'flex',
       flexDirection: 'column',
       transition: 'width 0.2s ease',
@@ -22,7 +23,8 @@ export default function NavRail({ modules, activeId, onSelect }) {
           display: 'flex', alignItems: 'center', justifyContent: expanded ? 'flex-end' : 'center',
           padding: '10px 12px',
           background: 'none', border: 'none', cursor: 'pointer',
-          color: '#475569', borderBottom: '1px solid #1e2130',
+          color: light ? '#94a3b8' : '#475569',
+          borderBottom: `1px solid ${light ? '#e2e8f0' : '#1e2130'}`,
           flexShrink: 0,
         }}
       >
@@ -41,9 +43,9 @@ export default function NavRail({ modules, activeId, onSelect }) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 width: '100%', padding: '9px 14px',
-                background: active ? '#1e2130' : 'none',
+                background: active ? (light ? '#e2e8f0' : '#1e2130') : 'none',
                 border: 'none', cursor: 'pointer',
-                color: active ? '#e2e8f0' : '#64748b',
+                color: active ? (light ? '#0f172a' : '#e2e8f0') : (light ? '#64748b' : '#64748b'),
                 textAlign: 'left', whiteSpace: 'nowrap',
                 borderLeft: `2px solid ${active ? '#6366f1' : 'transparent'}`,
                 transition: 'all 0.15s',
