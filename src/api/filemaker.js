@@ -14,10 +14,10 @@ async function pLimit(concurrency, tasks) {
   return results;
 }
 
-// In dev the Vite proxy intercepts /fmi/* so we use a relative host.
-// In production we hit the FMP server directly.
-function getHost() {
-  return import.meta.env.DEV ? '' : getCurrentEnv().host;
+// In dev the Vite proxy intercepts /fmi/* so host is empty (relative).
+// In production requests go through the Vercel serverless proxy at /api/fmi/*.
+function getBasePath() {
+  return import.meta.env.DEV ? '' : '/api';
 }
 
 let sessionToken = null;
@@ -30,7 +30,7 @@ async function getToken() {
     sessionToken = null;
   }
   if (sessionToken) return sessionToken;
-  const res = await fetch(`${getHost()}/fmi/data/v2/databases/${env.db}/sessions`, {
+  const res = await fetch(`${getBasePath()}/fmi/data/v2/databases/${env.db}/sessions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ export async function getRecords(layout, limit = 100, offset = 1, signal) {
   const token = await getToken();
   const env = getCurrentEnv();
   const res = await fetch(
-    `${getHost()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records?_limit=${limit}&_offset=${offset}`,
+    `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records?_limit=${limit}&_offset=${offset}`,
     { headers: { Authorization: `Bearer ${token}` }, signal }
   );
   if (res.status === 401) {
@@ -122,7 +122,7 @@ export async function getRecord(layout, recordId) {
   const token = await getToken();
   const env = getCurrentEnv();
   const res = await fetch(
-    `${getHost()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
+    `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return res.json();
@@ -132,7 +132,7 @@ export async function addPortalRow(layout, recordId, portalName, rowData) {
   const token = await getToken();
   const env = getCurrentEnv();
   const res = await fetch(
-    `${getHost()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
+    `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -147,7 +147,7 @@ export async function updateRecord(layout, recordId, fieldData) {
   const token = await getToken();
   const env = getCurrentEnv();
   const res = await fetch(
-    `${getHost()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
+    `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
