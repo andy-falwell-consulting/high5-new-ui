@@ -29,38 +29,43 @@ export default function EnvSwitcher() {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
+      display: 'flex', alignItems: 'center',
       padding: '5px 12px',
       background: theme.bg,
       borderBottom: `1px solid ${theme.border}`,
       fontSize: 12,
     }}>
-      <span style={{ color: '#64748b', fontWeight: 500 }}>FMP</span>
-      <select
-        value={currentId}
-        onChange={handleChange}
-        style={{
-          fontSize: 12, padding: '2px 6px', borderRadius: 5,
-          border: '1px solid #334155',
-          background: '#1e293b', color: '#e2e8f0', cursor: 'pointer',
-        }}
-      >
-        {FMP_ENVIRONMENTS.map((env) => (
-          <option key={env.id} value={env.id}>{env.label}</option>
-        ))}
-      </select>
-      <span style={{
-        fontSize: 10, fontWeight: 700, padding: '2px 7px',
-        borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.06em',
-        background: theme.badgeBg, color: theme.badgeColor,
-      }}>
-        {currentId}
-      </span>
-      {theme.label && (
-        <span style={{ color: theme.badgeColor, fontSize: 11, fontWeight: 600 }}>
-          {theme.label}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: '#64748b', fontWeight: 500 }}>FMP</span>
+        <select
+          value={currentId}
+          onChange={handleChange}
+          style={{
+            fontSize: 12, padding: '2px 6px', borderRadius: 5,
+            border: '1px solid #334155',
+            background: '#1e293b', color: '#e2e8f0', cursor: 'pointer',
+          }}
+        >
+          {FMP_ENVIRONMENTS.map((env) => (
+            <option key={env.id} value={env.id}>{env.label}</option>
+          ))}
+        </select>
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '2px 7px',
+          borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.06em',
+          background: theme.badgeBg, color: theme.badgeColor,
+        }}>
+          {currentId}
         </span>
-      )}
+        {theme.label && (
+          <span style={{ color: theme.badgeColor, fontSize: 11, fontWeight: 600 }}>
+            {theme.label}
+          </span>
+        )}
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.05em' }}>
+        v{__APP_VERSION__}
+      </span>
     </div>
   )
 }
