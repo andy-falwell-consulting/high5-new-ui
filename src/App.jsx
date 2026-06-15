@@ -2,16 +2,18 @@ import { useState } from 'react'
 import EnvSwitcher from './components/EnvSwitcher'
 import NavRail from './components/NavRail'
 import ProductsAndServicesV2 from './components/ProductsAndServicesV2'
+import Contacts from './components/Contacts'
 import './light-theme.css'
 
 const MODULES = [
   { id: 'products', label: 'Products & Services', icon: '📦' },
-  // Add more modules here as new FMP layouts are built
+  { id: 'contacts', label: 'Contacts', icon: '◉' },
 ]
 
 function renderModule(id) {
   switch (id) {
     case 'products': return <ProductsAndServicesV2 />
+    case 'contacts': return <Contacts />
     default: return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
         Coming soon
