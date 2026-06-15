@@ -83,7 +83,11 @@ export function proxyImageUrl(url) {
   if (!url) return null;
   try {
     const u = new URL(url);
-    return u.pathname + u.search;
+    if (import.meta.env.DEV) return u.pathname + u.search;
+    // In production, route through /api/image which adds auth
+    const env = getCurrentEnv();
+    const streamPath = u.pathname.replace(/^\/Streaming_SSL\//, '') + u.search;
+    return `/api/image?db=${encodeURIComponent(env.db)}&path=${encodeURIComponent(streamPath)}`;
   } catch { return url; }
 }
 
