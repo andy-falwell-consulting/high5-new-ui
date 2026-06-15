@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
   res.status(upstream.status);
   upstream.headers.forEach((v, k) => {
-    if (k === 'transfer-encoding') return;
+    if (['transfer-encoding', 'content-encoding', 'content-length'].includes(k)) return;
     res.setHeader(k, v);
   });
 
