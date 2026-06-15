@@ -252,10 +252,11 @@ export default function ProductsAndServicesV2() {
   });
 
   async function handleSelect(r) {
-    setDetailLoading(true);
     setEdits({}); setDataEditing(false); setSaveStatus(null);
+    setSelected(r); // show immediately from list data
+    setDetailLoading(true);
     const detail = await getRecord(LAYOUT, r.recordId);
-    setSelected(detail.response.data[0]);
+    setSelected(detail.response.data[0]); // update with full record (more portal rows etc.)
     setDetailLoading(false);
   }
 

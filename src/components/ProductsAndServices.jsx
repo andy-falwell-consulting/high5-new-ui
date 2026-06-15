@@ -343,10 +343,11 @@ export default function ProductsAndServices() {
   });
 
   async function handleSelect(r) {
-    setDetailLoading(true);
     setEdits({});
     setDataEditing(false);
     setSaveStatus(null);
+    setSelected(r); // show immediately from list data
+    setDetailLoading(true);
     const detail = await getRecord(LAYOUT, r.recordId);
     setSelected(detail.response.data[0]);
     setDetailLoading(false);
