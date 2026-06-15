@@ -47,7 +47,7 @@ export default function NavRail({ modules, activeId, onSelect, theme }) {
                 border: 'none', cursor: 'pointer',
                 color: active ? (light ? '#0f172a' : '#e2e8f0') : (light ? '#64748b' : '#64748b'),
                 textAlign: 'left', whiteSpace: 'nowrap',
-                borderLeft: `2px solid ${active ? '#6366f1' : 'transparent'}`,
+                borderLeft: `2px solid ${active ? '#e8322a' : 'transparent'}`,
                 transition: 'all 0.15s',
               }}
             >

@@ -55,7 +55,7 @@
 
 /* List */
 [data-theme="light"] .v2-list-item:hover { background: #f1f5f9; }
-[data-theme="light"] .v2-list-item.active { background: #eef2ff; }
+[data-theme="light"] .v2-list-item.active { background: #fff1f0; }
 [data-theme="light"] .v2-item-name { color: #334155; }
 [data-theme="light"] .v2-list-item.active .v2-item-name { color: #0f172a; }
 [data-theme="light"] .v2-item-sub { color: #94a3b8; }
@@ -78,7 +78,7 @@
 [data-theme="light"] .v2-empty-state { color: #cbd5e1; }
 
 /* Spinner */
-[data-theme="light"] .v2-spinner-ring { border-color: #e2e8f0; border-top-color: #6366f1; }
+[data-theme="light"] .v2-spinner-ring { border-color: #e2e8f0; border-top-color: #e8322a; }
 
 /* Top bar */
 [data-theme="light"] .v2-topbar {
@@ -109,15 +109,15 @@
   border-color: #cbd5e1;
 }
 [data-theme="light"] .v2-btn.ghost.active {
-  background: #eef2ff;
-  color: #6366f1;
-  border-color: #c7d2fe;
+  background: #fff1f0;
+  color: #e8322a;
+  border-color: #fca5a5;
 }
 
 /* Layout hint */
 [data-theme="light"] .v2-layout-hint {
-  background: #eef2ff;
-  border-color: #c7d2fe;
+  background: #fff1f0;
+  border-color: #fca5a5;
 }
 
 /* Sections */
@@ -135,7 +135,7 @@
 [data-theme="light"] .v2-field:hover { background: #f8fafc; }
 [data-theme="light"] .v2-field.dirty { background: #fffbeb; }
 [data-theme="light"] .v2-field.layout-edit { background: #f0f4ff; }
-[data-theme="light"] .v2-field.layout-edit:hover { background: #eef2ff; }
+[data-theme="light"] .v2-field.layout-edit:hover { background: #fff1f0; }
 [data-theme="light"] .v2-field label { color: #94a3b8; }
 [data-theme="light"] .v2-value { color: #334155; }
 [data-theme="light"] .v2-value.mono { color: #059669; }
@@ -172,8 +172,8 @@
   border-color: #cbd5e1;
 }
 [data-theme="light"] .v2-bom-add-btn:hover {
-  background: #eef2ff;
-  border-color: #6366f1;
+  background: #fff1f0;
+  border-color: #e8322a;
 }
 [data-theme="light"] .v2-bom-footer { border-top-color: #e2e8f0; }
 
