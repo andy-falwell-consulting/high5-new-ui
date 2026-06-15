@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getAllRecords, getRecord } from '../api/filemaker';
+import ColorLegend from './ColorLegend';
 import './Contacts.css';
 
 const LAYOUT = 'Contacts_New';
@@ -83,14 +84,17 @@ export default function Contacts() {
               <div className="ct-sidebar-count">{total ? `${total.toLocaleString()} contacts` : 'Loading…'}</div>
             </div>
           </div>
-          <div className="ct-search-wrap">
-            <span className="ct-search-icon">⌕</span>
-            <input
-              className="ct-search"
-              placeholder="Search…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div className="ct-search-wrap" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <span className="ct-search-icon">⌕</span>
+              <input
+                className="ct-search"
+                placeholder="Search…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <ColorLegend items={Object.entries(STATUS_COLOR).filter(([k]) => k !== 'default').map(([label, color]) => ({ label, color }))} />
           </div>
         </div>
 

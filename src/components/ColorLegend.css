@@ -1,0 +1,68 @@
+.cl-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cl-trigger {
+  font-size: 13px;
+  color: #475569;
+  cursor: default;
+  user-select: none;
+  line-height: 1;
+}
+.cl-trigger:hover { color: #e8322a; }
+
+.cl-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1000;
+  background: #1e2130;
+  border: 1px solid #2a2f45;
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.cl-wrap:hover .cl-tooltip { display: block; }
+
+.cl-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.cl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.cl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cl-label {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+/* Light theme */
+[data-theme="light"] .cl-tooltip {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+[data-theme="light"] .cl-label { color: #334155; }
+[data-theme="light"] .cl-trigger { color: #94a3b8; }
+[data-theme="light"] .cl-trigger:hover { color: #e8322a; }

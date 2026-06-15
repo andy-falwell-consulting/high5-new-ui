@@ -9,7 +9,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getRecord, updateRecord, addPortalRow, containerImageUrl } from '../api/filemaker';
-import { getCurrentEnv } from '../config/fmpEnvironments';
+import { getCurrentEnv, getCurrentEnvId } from '../config/fmpEnvironments';
+import ColorLegend from './ColorLegend';
 import BomPickerModal from './BomPickerModal';
 import { useAllRecords } from '../hooks/useAllRecords';
 import './ProductsAndServicesV2.css';
@@ -333,14 +334,17 @@ export default function ProductsAndServicesV2() {
               </div>
             </div>
           </div>
-          <div className="v2-search-wrap">
-            <span className="v2-search-icon">⌕</span>
-            <input
-              className="v2-search"
-              placeholder="Search…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div className="v2-search-wrap" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <span className="v2-search-icon">⌕</span>
+              <input
+                className="v2-search"
+                placeholder="Search…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <ColorLegend items={Object.entries(CATEGORY_COLORS).map(([label, color]) => ({ label, color }))} />
           </div>
         </div>
 
@@ -413,7 +417,9 @@ export default function ProductsAndServicesV2() {
                 {saveStatus === 'error' && <span className="v2-status error">✗ Failed</span>}
                 {!dataEditing ? (
                   <>
-                    <button className="v2-btn ghost" onClick={() => { setDataEditing(true); setEditMode(false); }}>✎ Edit</button>
+                    {getCurrentEnvId() === 'development' && (
+                      <button className="v2-btn ghost" onClick={() => { setDataEditing(true); setEditMode(false); }}>✎ Edit</button>
+                    )}
                     <button className={`v2-btn ghost ${editMode ? 'active' : ''}`} onClick={() => setEditMode(e => !e)}>⠿ Layout</button>
                     {editMode && <button className="v2-btn ghost sm" onClick={() => { setSections(DEFAULT_SECTIONS); saveLayout(DEFAULT_SECTIONS); }}>Reset</button>}
                   </>

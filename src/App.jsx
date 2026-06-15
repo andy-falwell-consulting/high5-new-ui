@@ -6,8 +6,8 @@ import Contacts from './components/Contacts'
 import './light-theme.css'
 
 const MODULES = [
-  { id: 'products', label: 'Products & Services', icon: '📦' },
   { id: 'contacts', label: 'Contacts', icon: '◉' },
+  { id: 'products', label: 'Products & Services', icon: '📦' },
 ]
 
 function renderModule(id) {
@@ -27,7 +27,7 @@ function getInitialTheme() {
 }
 
 export default function App() {
-  const [activeModule, setActiveModule] = useState('products')
+  const [activeModule, setActiveModule] = useState('contacts')
   const [theme, setTheme] = useState(getInitialTheme)
 
   function toggleTheme() {
