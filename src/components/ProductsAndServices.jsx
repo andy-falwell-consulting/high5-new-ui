@@ -14,7 +14,8 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { getRecord, updateRecord, proxyImageUrl } from '../api/filemaker';
+import { getRecord, updateRecord, containerImageUrl } from '../api/filemaker';
+import { getCurrentEnv } from '../config/fmpEnvironments';
 import { useAllRecords } from '../hooks/useAllRecords';
 import './ProductsAndServices.css';
 
@@ -469,7 +470,7 @@ export default function ProductsAndServices() {
           <div className="ps-detail">
             {/* Header */}
             <div className="ps-detail-header">
-              {f.Picture && <img className="ps-picture" src={proxyImageUrl(f.Picture)} alt={f.Name} />}
+              {f.Picture && <img className="ps-picture" src={containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected.recordId })} alt={f.Name} />}
               <div className="ps-detail-title">
                 <h1>{f.Name}</h1>
                 <div className="ps-detail-badges">

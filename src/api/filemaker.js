@@ -79,16 +79,18 @@ export function bustCache(layout) {
   delete memCache[layout];
 }
 
-export function proxyImageUrl(url) {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    if (import.meta.env.DEV) return u.pathname + u.search;
-    // In production, route through /api/image which adds auth
-    const env = getCurrentEnv();
-    const streamPath = u.pathname.replace(/^\/Streaming_SSL\//, '') + u.search;
-    return `/api/image?db=${encodeURIComponent(env.db)}&path=${encodeURIComponent(streamPath)}`;
-  } catch { return url; }
+// Build an image URL for a container field.
+// In dev: use the Vite-proxied Streaming_SSL URL directly.
+// In prod: route through /api/image which authenticates server-side.
+export function containerImageUrl(streamingUrl, { db, layout, recordId, field = 'Picture' } = {}) {
+  if (!streamingUrl) return null;
+  if (import.meta.env.DEV) {
+    try {
+      const u = new URL(streamingUrl);
+      return u.pathname + u.search;
+    } catch { return streamingUrl; }
+  }
+  return `/api/image?db=${encodeURIComponent(db)}&layout=${encodeURIComponent(layout)}&recordId=${encodeURIComponent(recordId)}&field=${encodeURIComponent(field)}`;
 }
 
 export async function getAllRecords(layout, { onProgress, batchSize = 100 } = {}) {

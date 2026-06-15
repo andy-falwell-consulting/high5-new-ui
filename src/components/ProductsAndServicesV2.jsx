@@ -8,7 +8,8 @@ import {
   verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { getRecord, updateRecord, addPortalRow, proxyImageUrl } from '../api/filemaker';
+import { getRecord, updateRecord, addPortalRow, containerImageUrl } from '../api/filemaker';
+import { getCurrentEnv } from '../config/fmpEnvironments';
 import BomPickerModal from './BomPickerModal';
 import { useAllRecords } from '../hooks/useAllRecords';
 import './ProductsAndServicesV2.css';
@@ -386,7 +387,7 @@ export default function ProductsAndServicesV2() {
             {/* Top bar */}
             <div className="v2-topbar">
               <div className="v2-topbar-left">
-                {f.Picture && <img className="v2-hero-img" src={proxyImageUrl(f.Picture)} alt={f.Name} />}
+                {f.Picture && <img className="v2-hero-img" src={containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected.recordId })} alt={f.Name} />}
                 <div>
                   <h1 className="v2-title">{f.Name}</h1>
                   <div className="v2-meta-row">
