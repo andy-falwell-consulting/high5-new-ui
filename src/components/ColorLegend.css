@@ -14,20 +14,16 @@
 .cl-trigger:hover { color: #e8322a; }
 
 .cl-tooltip {
-  display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 1000;
+  position: fixed;
+  z-index: 9999;
   background: #1e2130;
   border: 1px solid #2a2f45;
   border-radius: 8px;
   padding: 10px 12px;
   min-width: 160px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  pointer-events: none;
 }
-
-.cl-wrap:hover .cl-tooltip { display: block; }
 
 .cl-title {
   font-size: 10px;
