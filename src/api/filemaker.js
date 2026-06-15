@@ -123,14 +123,26 @@ export async function getAllRecords(layout, { onProgress, batchSize = 100 } = {}
   return { records: all, total };
 }
 
+const detailCache = new Map();
+
 export async function getRecord(layout, recordId) {
+  const key = `${layout}:${recordId}`;
+  if (detailCache.has(key)) return detailCache.get(key);
   const token = await getToken();
   const env = getCurrentEnv();
   const res = await fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  return res.json();
+  const promise = res.json();
+  detailCache.set(key, promise);
+  return promise;
+}
+
+// Fire-and-forget prefetch — call on hover so detail is ready before click
+export function prefetchRecord(layout, recordId) {
+  const key = `${layout}:${recordId}`;
+  if (!detailCache.has(key)) getRecord(layout, recordId);
 }
 
 export async function addPortalRow(layout, recordId, portalName, rowData) {

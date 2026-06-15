@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { getAllRecords, getRecord } from '../api/filemaker';
+import { getAllRecords, getRecord, prefetchRecord } from '../api/filemaker';
 import ColorLegend from './ColorLegend';
 import './Contacts.css';
 
@@ -25,6 +25,7 @@ export default function Contacts() {
   useEffect(() => {
     getAllRecords(LAYOUT, {
       onProgress: ({ records, total }) => { setRecords(records); setTotal(total); },
+      batchSize: 500,
     });
   }, []);
 
@@ -116,6 +117,7 @@ export default function Contacts() {
                   onMouseEnter={e => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     setTooltip({ r, x: rect.right + 8, y: rect.top });
+                    prefetchRecord(LAYOUT, r.recordId);
                   }}
                   onMouseLeave={() => setTooltip(null)}
                 >
