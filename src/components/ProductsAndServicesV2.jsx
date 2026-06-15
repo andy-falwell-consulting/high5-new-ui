@@ -82,18 +82,20 @@ function saveLayout(s) { localStorage.setItem('ps_layout_v2', JSON.stringify(s))
 function SortableSection({ section, fieldData, portalData, editMode, onFieldReorder, edits, onChange, dataEditing, onOpenBomPicker }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div ref={setNodeRef} style={style} className="v2-section">
-      <div className="v2-section-header">
-        {editMode && <span className="v2-drag-handle" {...attributes} {...listeners}>⠿</span>}
+      <div className="v2-section-header" style={{ cursor: 'pointer' }} onClick={() => setCollapsed(c => !c)}>
+        {editMode && <span className="v2-drag-handle" {...attributes} {...listeners} onClick={e => e.stopPropagation()}>⠿</span>}
         <span className="v2-section-icon">{section.icon}</span>
-        <h3>{section.title}</h3>
+        <h3 style={{ flex: 1 }}>{section.title}</h3>
+        <span style={{ fontSize: 10, color: '#475569', transition: 'transform 0.2s', display: 'inline-block', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▼</span>
       </div>
-      <SectionContent section={section} fieldData={fieldData} portalData={portalData}
+      {!collapsed && <SectionContent section={section} fieldData={fieldData} portalData={portalData}
         editMode={editMode} onFieldReorder={onFieldReorder}
         edits={edits} onChange={onChange} dataEditing={dataEditing}
-        onOpenBomPicker={onOpenBomPicker} />
+        onOpenBomPicker={onOpenBomPicker} />}
     </div>
   );
 }
@@ -356,7 +358,7 @@ export default function ProductsAndServicesV2() {
                   <div className="v2-item-dot" style={{ background: color }} />
                   <div className="v2-item-text">
                     <div className="v2-item-name">{r.fieldData.Name || '(no name)'}</div>
-                    <div className="v2-item-sub">{r.fieldData.SKU} · {r.fieldData.Type}</div>
+                    <div className="v2-item-sub">{r.fieldData.SKU}</div>
                   </div>
                 </li>
               );
