@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/fmi/:path*", "destination": "/api/proxy" },
-    { "source": "/Streaming_SSL/:path*", "destination": "/api/proxy" }
+    { "source": "/fmi/:path*", "destination": "/api/proxy?prefix=fmi&path=:path*" },
+    { "source": "/Streaming_SSL/:path*", "destination": "/api/proxy?prefix=Streaming_SSL&path=:path*" }
   ]
 }

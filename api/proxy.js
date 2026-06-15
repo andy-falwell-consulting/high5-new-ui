@@ -3,7 +3,13 @@ export const config = { api: { bodyParser: false } };
 const FMP_HOST = 'https://ILELLCO.pcifmhosting.com';
 
 export default async function handler(req, res) {
-  const url = `${FMP_HOST}${req.url}`;
+  const parsed = new URL(req.url, 'http://localhost');
+  const prefix = parsed.searchParams.get('prefix');
+  const path = parsed.searchParams.get('path') ?? '';
+  parsed.searchParams.delete('prefix');
+  parsed.searchParams.delete('path');
+  const qs = parsed.searchParams.toString();
+  const url = `${FMP_HOST}/${prefix}/${path}${qs ? '?' + qs : ''}`;
 
   const headers = {};
   for (const [k, v] of Object.entries(req.headers)) {
