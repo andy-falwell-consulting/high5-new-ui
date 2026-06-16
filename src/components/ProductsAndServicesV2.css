@@ -488,6 +488,27 @@
 }
 .v2-source-url:hover, .v2-link:hover { text-decoration: underline; }
 
+/* Image lightbox */
+.v2-img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  backdrop-filter: blur(4px);
+}
+.v2-img-lightbox-img {
+  width: min(85vw, 640px);
+  height: min(85vh, 640px);
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  image-rendering: -webkit-optimize-contrast;
+}
+
 /* Dirty indicator */
 .v2-dirty-dot {
   position: absolute;
