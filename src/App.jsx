@@ -10,18 +10,6 @@ const MODULES = [
   { id: 'products', label: 'Products & Services', icon: '📦' },
 ]
 
-function renderModule(id) {
-  switch (id) {
-    case 'products': return <ProductsAndServicesV2 />
-    case 'contacts': return <Contacts />
-    default: return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
-        Coming soon
-      </div>
-    )
-  }
-}
-
 function getInitialTheme() {
   return localStorage.getItem('theme') ?? 'dark'
 }
@@ -41,7 +29,8 @@ export default function App() {
       <EnvSwitcher theme={theme} onToggleTheme={toggleTheme} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <NavRail modules={MODULES} activeId={activeModule} onSelect={setActiveModule} theme={theme} />
-        {renderModule(activeModule)}
+        <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts /></div>
+        <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 /></div>
       </div>
     </div>
   )
