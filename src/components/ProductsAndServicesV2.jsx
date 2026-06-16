@@ -8,10 +8,12 @@ import {
   verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { getRecord, updateRecord, addPortalRow, containerImageUrl } from '../api/filemaker';
+import { getRecord, updateRecord, addPortalRow, containerImageUrl, createRecord } from '../api/filemaker';
 import { getCurrentEnv, getCurrentEnvId } from '../config/fmpEnvironments';
 import ColorLegend from './ColorLegend';
 import BomPickerModal from './BomPickerModal';
+import NewItemModal from './NewItemModal';
+import { pushToShopify, pushToQBO } from '../api/integrations';
 import { useAllRecords } from '../hooks/useAllRecords';
 import './ProductsAndServicesV2.css';
 
@@ -273,6 +275,8 @@ function FieldValue({ fieldKey, value, onChange, dataEditing }) {
   return <input type="text" value={value || ''} onChange={e => ch(e.target.value)} className="v2-input" />;
 }
 
+const AUTO_SYNC_FIELDS = new Set(['Name', 'Unit_Price', 'Description', 'SKU']);
+
 // ── Main ────────────────────────────────────────────────────────────
 export default function ProductsAndServicesV2() {
   const { records, total, loading, error } = useAllRecords(LAYOUT, {
@@ -297,6 +301,8 @@ export default function ProductsAndServicesV2() {
   const [saveStatus, setSaveStatus] = useState(null);
   const [showBomPicker, setShowBomPicker] = useState(false);
   const [navWidth, setNavWidth] = useState(300);
+  const [showNewItem, setShowNewItem] = useState(false);
+  const [syncStatus, setSyncStatus] = useState({});
   const isResizing = useRef(false);
 
   const startResize = useCallback((e) => {
@@ -351,12 +357,83 @@ export default function ProductsAndServicesV2() {
     try {
       const res = await updateRecord(LAYOUT, selected.recordId, edits);
       if (res.messages?.[0]?.code === '0') {
-        setSelected(p => ({ ...p, fieldData: { ...p.fieldData, ...edits } }));
+        const merged = { ...selected.fieldData, ...edits };
+        setSelected(p => ({ ...p, fieldData: merged }));
         setEdits({}); setDataEditing(false); setSaveStatus('saved');
         setTimeout(() => setSaveStatus(null), 3000);
+        // Auto-sync to connected platforms if a sync-relevant field changed
+        const syncFields = Object.keys(edits).filter(k => AUTO_SYNC_FIELDS.has(k));
+        if (syncFields.length) {
+          if (merged._kat__Item_ID_Shopify) handleSyncPush('shopify');
+          if (merged._kat__Item_ID_QuickBooks) handleSyncPush('qbo');
+        }
       } else { setSaveStatus('error'); }
     } catch { setSaveStatus('error'); }
     finally { setSaving(false); }
+  };
+
+  const handleSyncPush = async (target) => {
+    if (!selected) return;
+    const f = { ...selected.fieldData, ...edits };
+    setSyncStatus(s => ({ ...s, [target]: 'pushing' }));
+    try {
+      if (target === 'shopify') {
+        const existing = f._kat__Item_ID_Shopify || null;
+        const { shopifyId, variantId } = await pushToShopify(f, selected.recordId, existing);
+        if (!existing) {
+          await updateRecord(LAYOUT, selected.recordId, {
+            _kat__Item_ID_Shopify: shopifyId,
+            _kat__Item_Variant_Id: variantId,
+          });
+          setSelected(p => ({ ...p, fieldData: { ...p.fieldData, _kat__Item_ID_Shopify: shopifyId, _kat__Item_Variant_Id: variantId } }));
+        }
+      } else if (target === 'qbo') {
+        const existing = f._kat__Item_ID_QuickBooks || null;
+        const incomeAccount = f.QuickBooks_Account_Income || '155';
+        const { qboId } = await pushToQBO(f, existing, incomeAccount);
+        if (!existing && qboId) {
+          await updateRecord(LAYOUT, selected.recordId, { _kat__Item_ID_QuickBooks: qboId });
+          setSelected(p => ({ ...p, fieldData: { ...p.fieldData, _kat__Item_ID_QuickBooks: qboId } }));
+        }
+      }
+      setSyncStatus(s => ({ ...s, [target]: 'ok' }));
+      setTimeout(() => setSyncStatus(s => ({ ...s, [target]: null })), 3000);
+    } catch (e) {
+      console.error(`${target} sync error:`, e);
+      setSyncStatus(s => ({ ...s, [target]: 'error' }));
+      setTimeout(() => setSyncStatus(s => ({ ...s, [target]: null })), 5000);
+    }
+  };
+
+  const handleCreate = async ({ fields, pushShopify, shopifyStatus, pushQBO, qboIncome }) => {
+    // 1. Create in FMP
+    const res = await createRecord(LAYOUT, fields);
+    if (res.messages?.[0]?.code !== '0') throw new Error(res.messages?.[0]?.message || 'FMP create failed');
+    const newRecordId = res.response?.recordId;
+    const updates = {};
+
+    // 2. Push to Shopify if requested
+    if (pushShopify) {
+      const { shopifyId, variantId } = await pushToShopify({ ...fields, status: shopifyStatus }, newRecordId);
+      updates._kat__Item_ID_Shopify = shopifyId;
+      updates._kat__Item_Variant_Id = variantId;
+    }
+
+    // 3. Push to QBO if requested
+    if (pushQBO) {
+      const { qboId } = await pushToQBO(fields, null, qboIncome);
+      if (qboId) updates._kat__Item_ID_QuickBooks = qboId;
+    }
+
+    // 4. Write IDs back to FMP
+    if (Object.keys(updates).length) {
+      await updateRecord(LAYOUT, newRecordId, updates);
+    }
+
+    // 5. Reload the new record and add to list
+    const detail = await getRecord(LAYOUT, newRecordId);
+    const newRecord = detail.response?.data?.[0];
+    if (newRecord) setSelected(newRecord);
   };
 
   const handleAddBomItem = useCallback(async ({ item, quantity }) => {
@@ -405,6 +482,7 @@ export default function ProductsAndServicesV2() {
               </div>
             </div>
           </div>
+          <button className="v2-btn ghost sm" onClick={() => setShowNewItem(true)} style={{ marginBottom: 8 }}>+ New</button>
           <div className="v2-search-wrap" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <span className="v2-search-icon">⌕</span>
@@ -478,6 +556,25 @@ export default function ProductsAndServicesV2() {
                 </div>
               </div>
               <div className="v2-topbar-actions">
+                {/* Integration sync buttons */}
+                <button
+                  className={`v2-btn ghost sm ${syncStatus.shopify === 'ok' ? 'active' : ''}`}
+                  onClick={() => handleSyncPush('shopify')}
+                  disabled={syncStatus.shopify === 'pushing'}
+                  title={f._kat__Item_ID_Shopify ? `Shopify ID: ${f._kat__Item_ID_Shopify}` : 'Push to Shopify'}
+                  style={{ color: syncStatus.shopify === 'error' ? '#f87171' : syncStatus.shopify === 'ok' ? '#4ade80' : undefined }}
+                >
+                  {syncStatus.shopify === 'pushing' ? '…' : syncStatus.shopify === 'ok' ? '✓ Shopify' : syncStatus.shopify === 'error' ? '✗ Shopify' : '⇪ Shopify'}
+                </button>
+                <button
+                  className={`v2-btn ghost sm ${syncStatus.qbo === 'ok' ? 'active' : ''}`}
+                  onClick={() => handleSyncPush('qbo')}
+                  disabled={syncStatus.qbo === 'pushing'}
+                  title={f._kat__Item_ID_QuickBooks ? `QBO ID: ${f._kat__Item_ID_QuickBooks}` : 'Push to QuickBooks'}
+                  style={{ color: syncStatus.qbo === 'error' ? '#f87171' : syncStatus.qbo === 'ok' ? '#4ade80' : undefined }}
+                >
+                  {syncStatus.qbo === 'pushing' ? '…' : syncStatus.qbo === 'ok' ? '✓ QBO' : syncStatus.qbo === 'error' ? '✗ QBO' : '⇪ QBO'}
+                </button>
                 {saveStatus === 'saved' && <span className="v2-status saved">✓ Saved</span>}
                 {saveStatus === 'error' && <span className="v2-status error">✗ Failed</span>}
                 {!dataEditing ? (
@@ -543,6 +640,13 @@ export default function ProductsAndServicesV2() {
           allRecords={records}
           onAdd={handleAddBomItem}
           onClose={() => setShowBomPicker(false)}
+        />
+      )}
+
+      {showNewItem && (
+        <NewItemModal
+          onClose={() => setShowNewItem(false)}
+          onCreate={handleCreate}
         />
       )}
     </div>

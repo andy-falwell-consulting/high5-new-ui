@@ -186,6 +186,21 @@ export function prefetchRecord(layout, recordId) {
   if (!detailCache.has(key)) getRecord(layout, recordId);
 }
 
+export async function createRecord(layout, fieldData) {
+  const token = await getToken();
+  const env = getCurrentEnv();
+  const res = await fetch(
+    `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ fieldData }),
+    }
+  );
+  if (res.status === 401) { sessionToken = null; return createRecord(layout, fieldData); }
+  return res.json();
+}
+
 export async function addPortalRow(layout, recordId, portalName, rowData) {
   const token = await getToken();
   const env = getCurrentEnv();

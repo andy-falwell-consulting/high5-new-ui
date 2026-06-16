@@ -1,0 +1,166 @@
+.nim-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  backdrop-filter: blur(2px);
+}
+
+.nim-drawer {
+  width: 480px;
+  max-width: 100vw;
+  height: 100vh;
+  background: #13151c;
+  border-left: 1px solid #1e2130;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #1e2130;
+  flex-shrink: 0;
+}
+.nim-header h2 {
+  margin: 0;
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f1f5f9;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.nim-close {
+  background: none; border: none; color: #475569; font-size: 16px;
+  cursor: pointer; padding: 4px 8px; border-radius: 4px;
+}
+.nim-close:hover { background: #1e2130; color: #e2e8f0; }
+
+.nim-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.nim-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #0f1117;
+  border-radius: 8px;
+  border: 1px solid #1e2130;
+}
+.nim-section h3 {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+}
+
+.nim-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.nim-grid.nim-sub { margin-top: 8px; }
+
+.nim-grid label, .nim-wide label, label.nim-wide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.nim-wide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nim-grid input, .nim-grid select,
+.nim-wide input, .nim-wide textarea,
+.nim-wide select {
+  background: #1e2130;
+  border: 1px solid #2a2f45;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 12.5px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  width: 100%;
+}
+.nim-grid input:focus, .nim-grid select:focus,
+.nim-wide input:focus, .nim-wide textarea:focus,
+.nim-wide select:focus { border-color: #e8322a; }
+
+.nim-wide textarea { resize: vertical; min-height: 72px; }
+
+.nim-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #94a3b8;
+}
+.nim-toggle input[type=checkbox] { accent-color: #e8322a; width: 14px; height: 14px; cursor: pointer; }
+.nim-toggle strong { color: #e2e8f0; }
+
+.nim-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #1e2130;
+  flex-shrink: 0;
+}
+.nim-error { flex: 1; font-size: 12px; color: #f87171; }
+.nim-btn {
+  padding: 8px 20px; border-radius: 8px; font-size: 13px;
+  font-weight: 600; cursor: pointer; border: none; transition: all 0.15s;
+}
+.nim-btn.cancel { background: #1e2130; color: #94a3b8; border: 1px solid #2a2f45; margin-left: auto; }
+.nim-btn.cancel:hover { background: #252a3d; color: #e2e8f0; }
+.nim-btn.save { background: linear-gradient(135deg, #e8322a, #c52020); color: #fff; }
+.nim-btn.save:disabled { opacity: 0.5; cursor: not-allowed; }
+.nim-btn.save:not(:disabled):hover { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+/* Light theme */
+[data-theme="light"] .nim-drawer { background: #ffffff; border-left-color: #e2e8f0; }
+[data-theme="light"] .nim-header { border-bottom-color: #e2e8f0; }
+[data-theme="light"] .nim-header h2 { color: #0f172a; }
+[data-theme="light"] .nim-close { color: #94a3b8; }
+[data-theme="light"] .nim-close:hover { background: #f1f5f9; color: #0f172a; }
+[data-theme="light"] .nim-section { background: #f8fafc; border-color: #e2e8f0; }
+[data-theme="light"] .nim-grid input, [data-theme="light"] .nim-grid select,
+[data-theme="light"] .nim-wide input, [data-theme="light"] .nim-wide textarea,
+[data-theme="light"] .nim-wide select {
+  background: #ffffff; border-color: #e2e8f0; color: #0f172a;
+}
+[data-theme="light"] .nim-toggle { color: #64748b; }
+[data-theme="light"] .nim-toggle strong { color: #0f172a; }
+[data-theme="light"] .nim-footer { border-top-color: #e2e8f0; }
+[data-theme="light"] .nim-btn.cancel { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
