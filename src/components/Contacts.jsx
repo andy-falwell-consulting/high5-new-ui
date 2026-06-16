@@ -16,7 +16,6 @@ export default function Contacts() {
   const [records, setRecords] = useState([]);
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [navWidth, setNavWidth] = useState(280);
   const [tooltip, setTooltip] = useState(null);
@@ -43,10 +42,9 @@ export default function Contacts() {
 
   async function handleSelect(r) {
     setSelected(r);
-    setDetailLoading(true);
-    const detail = await getRecord(LAYOUT, r.recordId);
-    setSelected(detail.response.data[0]);
-    setDetailLoading(false);
+    getRecord(LAYOUT, r.recordId).then(detail => {
+      setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
+    }).catch(() => {});
   }
 
   const startResize = useCallback((e) => {
@@ -156,20 +154,14 @@ export default function Contacts() {
 
       {/* Main */}
       <main className="ct-main">
-        {!selected && !detailLoading && (
+        {!selected && (
           <div className="ct-empty-state">
             <div className="ct-empty-icon">◈</div>
             <p>Select a contact</p>
           </div>
         )}
 
-        {detailLoading && (
-          <div className="ct-empty-state">
-            <div className="ct-spinner-ring" />
-          </div>
-        )}
-
-        {selected && !detailLoading && f && (
+        {selected && f && (
           <>
             {/* Top bar */}
             <div className="ct-topbar">
