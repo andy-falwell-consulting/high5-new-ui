@@ -297,7 +297,6 @@ export default function ProductsAndServicesV2() {
   const [saveStatus, setSaveStatus] = useState(null);
   const [showBomPicker, setShowBomPicker] = useState(false);
   const [navWidth, setNavWidth] = useState(300);
-  const [imgPreview, setImgPreview] = useState(null);
   const isResizing = useRef(false);
 
   const startResize = useCallback((e) => {
@@ -391,7 +390,6 @@ export default function ProductsAndServicesV2() {
   const portalData = selected?.portalData;
   const catColor = CATEGORY_COLORS[f.Category] || '#64748b';
   const dirtyCount = Object.keys(edits).length;
-  const heroImgSrc = f.Picture ? containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected?.recordId }) : null;
 
   return (
     <div className="v2-container">
@@ -468,7 +466,7 @@ export default function ProductsAndServicesV2() {
             {/* Top bar */}
             <div className="v2-topbar">
               <div className="v2-topbar-left">
-                {heroImgSrc && <img className="v2-hero-img" src={heroImgSrc} alt={f.Name} onClick={() => setImgPreview(heroImgSrc)} style={{ cursor: 'zoom-in' }} />}
+                {f.Picture && <img className="v2-hero-img" src={containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected.recordId })} alt={f.Name} />}
                 <div>
                   <h1 className="v2-title">{f.Name}</h1>
                   <div className="v2-meta-row">
@@ -546,12 +544,6 @@ export default function ProductsAndServicesV2() {
           onAdd={handleAddBomItem}
           onClose={() => setShowBomPicker(false)}
         />
-      )}
-
-      {imgPreview && (
-        <div className="v2-img-lightbox" onClick={() => setImgPreview(null)}>
-          <img src={imgPreview} alt="Product preview" className="v2-img-lightbox-img" />
-        </div>
       )}
     </div>
   );
