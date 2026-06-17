@@ -3,11 +3,13 @@ import EnvSwitcher from './components/EnvSwitcher'
 import NavRail from './components/NavRail'
 import ProductsAndServicesV2 from './components/ProductsAndServicesV2'
 import Contacts from './components/Contacts'
+import CCS from './components/CCS'
 import './light-theme.css'
 
 const MODULES = [
   { id: 'contacts', label: 'Contacts', icon: '◉' },
   { id: 'products', label: 'Products & Services', icon: '📦' },
+  { id: 'ccs', label: 'CCS', icon: '◈' },
 ]
 
 function getInitialTheme() {
@@ -31,6 +33,7 @@ export default function App() {
         <NavRail modules={MODULES} activeId={activeModule} onSelect={setActiveModule} theme={theme} />
         <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts /></div>
         <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 /></div>
+        <div style={{ display: activeModule === 'ccs' ? 'contents' : 'none' }}><CCS /></div>
       </div>
     </div>
   )
