@@ -1,6 +1,9 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { getAllRecords, getRecord, prefetchRecord } from '../api/filemaker';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { getAllRecords, getRecord, prefetchRecord, updateRecord } from '../api/filemaker';
 import ColorLegend from './ColorLegend';
+import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './Contacts.css';
 
 const LAYOUT = 'Contacts_New';
@@ -12,6 +15,129 @@ const STATUS_COLOR = {
   default: '#64748b',
 };
 
+const TYPE_OPTIONS    = ['Individual', 'Organization', 'Vendor', 'Staff'];
+const STATUS_OPTIONS  = ['Active', 'Inactive', 'Prospect'];
+
+const DEFAULT_SECTIONS = [
+  { id: 'identity',  title: 'Identity',         icon: '◈', fields: ['Name_Organization','Type','Status','Industry','Department','Source','Spouse','Birthdate'] },
+  { id: 'phone',     title: 'Phone',             icon: '✆', type: 'portal' },
+  { id: 'email',     title: 'Email',             icon: '✉', type: 'portal' },
+  { id: 'address',   title: 'Address',           icon: '◎', type: 'portal' },
+  { id: 'related',   title: 'Related Contacts',  icon: '◉', type: 'portal' },
+  { id: 'estimates', title: 'Estimates',         icon: '≡', type: 'portal' },
+  { id: 'invoices',  title: 'Invoices',          icon: '$', type: 'portal' },
+  { id: 'notes',     title: 'Notes',             icon: '✎', fields: ['Client_Alert','Keywords','Notes'] },
+];
+
+const FIELD_LABELS = {
+  Name_Organization: 'Name / Organization', Type: 'Type', Status: 'Status',
+  Industry: 'Industry', Department: 'Department', Source: 'Source',
+  Spouse: 'Spouse', Birthdate: 'Birthdate',
+  Client_Alert: 'Client Alert', Keywords: 'Keywords', Notes: 'Notes',
+};
+
+function portalHasData(id, p) {
+  if (!p) return false;
+  const map = {
+    phone: p.cntct_PHONE?.length > 0,
+    email: p.cntct_INADR?.length > 0,
+    address: p.cntct_ADDR?.length > 0,
+    related: p.Portal__Contacts?.length > 0,
+    estimates: p['Portal__Estimates 2']?.length > 0,
+    invoices: p.Portal__Invoices?.length > 0,
+  };
+  return map[id] ?? false;
+}
+
+function FieldValue({ fieldKey, value, onChange, dataEditing }) {
+  const ch = v => onChange(fieldKey, v);
+  const ro = !dataEditing;
+
+  if (fieldKey === 'Type') {
+    if (ro) return <span className="sl-value">{value || '—'}</span>;
+    return <select className="sl-select" value={value||''} onChange={e => ch(e.target.value)}>
+      <option value="">—</option>
+      {TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>;
+  }
+  if (fieldKey === 'Status') {
+    if (ro) return <span className="sl-value">{value || '—'}</span>;
+    return <select className="sl-select" value={value||''} onChange={e => ch(e.target.value)}>
+      <option value="">—</option>
+      {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>;
+  }
+  if (fieldKey === 'Notes') {
+    if (ro) return <div className="sl-textarea-display">{value || '—'}</div>;
+    return <textarea className="sl-textarea" value={value||''} onChange={e => ch(e.target.value)} rows={4} />;
+  }
+  if (ro) return <span className="sl-value">{value || '—'}</span>;
+  return <input className="sl-input" value={value||''} onChange={e => ch(e.target.value)} />;
+}
+
+function SectionContent({ section, fieldData, portalData, editMode, onFieldReorder, edits, onChange, dataEditing }) {
+  const f = fieldData;
+  const p = portalData;
+
+  if (section.type === 'portal') {
+    if (!portalHasData(section.id, p)) return <p className="sl-empty">No records</p>;
+
+    if (section.id === 'phone') return (
+      <table className="ct-table"><thead><tr><th>Number</th><th>Type</th></tr></thead>
+        <tbody>{p.cntct_PHONE.map((r, i) => <tr key={i}><td className="mono">{r['cntct_PHONE::Number']}</td><td>{r['cntct_PHONE::Type']}</td></tr>)}</tbody>
+      </table>
+    );
+    if (section.id === 'email') return (
+      <table className="ct-table"><thead><tr><th>Address</th><th>Type</th></tr></thead>
+        <tbody>{p.cntct_INADR.map((r, i) => <tr key={i}><td>{r['cntct_INADR::Address']}</td><td>{r['cntct_INADR::Type']}</td></tr>)}</tbody>
+      </table>
+    );
+    if (section.id === 'address') return (
+      <table className="ct-table"><thead><tr><th>Street</th><th>City</th><th>State</th><th>Zip</th><th>Type</th></tr></thead>
+        <tbody>{p.cntct_ADDR.map((r, i) => <tr key={i}><td>{r['cntct_ADDR::Street']}</td><td>{r['cntct_ADDR::City']}</td><td>{r['cntct_ADDR::State']}</td><td className="mono">{r['cntct_ADDR::Zip']}</td><td>{r['cntct_ADDR::Type']}</td></tr>)}</tbody>
+      </table>
+    );
+    if (section.id === 'related') return (
+      <table className="ct-table"><thead><tr><th>Name</th><th>Phone</th><th>Email</th></tr></thead>
+        <tbody>{p.Portal__Contacts.map((r, i) => <tr key={i}><td>{r['cntct_RLTN::zz__Display__ct']}</td><td className="mono">{r['cntct_rltn_cntct_PHONE::Number']}</td><td>{r['cntct_rltn_cntct_INADR__email::Address']}</td></tr>)}</tbody>
+      </table>
+    );
+    if (section.id === 'estimates') return (
+      <table className="ct-table"><thead><tr><th>ID</th><th>Date</th><th>Title</th><th className="num">Total</th><th>Status</th></tr></thead>
+        <tbody>{p['Portal__Estimates 2'].map((r, i) => <tr key={i}><td className="mono">{r['cntct_ESTMT::_kpt__Estimate_ID']}</td><td>{r['cntct_ESTMT::Date']}</td><td>{r['cntct_ESTMT::Title']}</td><td className="num">${Number(r['cntct_ESTMT::zz__Total__xn']||0).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td>{r['cntct_ESTMT::Status']}</td></tr>)}</tbody>
+      </table>
+    );
+    if (section.id === 'invoices') return (
+      <table className="ct-table"><thead><tr><th>QB Ref</th><th>Date</th><th className="num">Total</th><th className="num">Balance</th><th>Memo</th></tr></thead>
+        <tbody>{p.Portal__Invoices.map((r, i) => <tr key={i}><td className="mono">{r['cntct_INVO::QuickBooks_Reference_Number']}</td><td>{r['cntct_INVO::Date']}</td><td className="num">${Number(r['cntct_INVO::zz__Total__xn']||0).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td className="num" style={{color:Number(r['cntct_INVO::zz__Balance_Due__xs'])>0?'#e8322a':'inherit'}}>${Number(r['cntct_INVO::zz__Balance_Due__xs']||0).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td>{r['cntct_INVO::Memo']}</td></tr>)}</tbody>
+      </table>
+    );
+    return null;
+  }
+
+  return (
+    <SortableFieldGrid sectionId={section.id} fields={section.fields} editMode={editMode} onReorder={onFieldReorder}>
+      {section.fields.map(fk => {
+        const saved = f?.[fk];
+        const value = fk in edits ? edits[fk] : saved;
+        const dirty = fk in edits && edits[fk] !== saved;
+        return (
+          <SortableField key={fk} id={fk} editMode={editMode} dirty={dirty} wide={fk === 'Notes'}>
+            <label>{FIELD_LABELS[fk] || fk}</label>
+            <FieldValue fieldKey={fk} value={value} onChange={onChange} dataEditing={dataEditing} />
+          </SortableField>
+        );
+      })}
+      {section.id === 'identity' && f?.['_kaf__qbo_id'] && (
+        <div className="sl-field">
+          <label>QuickBooks ID</label>
+          <span className="sl-value mono">{f['_kaf__qbo_id']}</span>
+        </div>
+      )}
+    </SortableFieldGrid>
+  );
+}
+
 export default function Contacts() {
   const [records, setRecords] = useState([]);
   const [total, setTotal] = useState(0);
@@ -19,7 +145,14 @@ export default function Contacts() {
   const [search, setSearch] = useState('');
   const [navWidth, setNavWidth] = useState(280);
   const [tooltip, setTooltip] = useState(null);
+  const [dataEditing, setDataEditing] = useState(false);
+  const [edits, setEdits] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
   const isResizing = useRef(false);
+
+  const { sections, editMode, setEditMode, activeId, setActiveId, sensors, handleSectionDragEnd, handleFieldReorder, resetLayout } =
+    useSortableLayout('ct_layout_v1', DEFAULT_SECTIONS);
 
   useEffect(() => {
     getAllRecords(LAYOUT, {
@@ -53,10 +186,28 @@ export default function Contacts() {
   });
 
   async function handleSelect(r) {
+    setEdits({}); setDataEditing(false); setSaveStatus(null); setEditMode(false);
     setSelected(r);
     getRecord(LAYOUT, r.recordId).then(detail => {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
     }).catch(() => {});
+  }
+
+  const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
+  const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
+
+  async function handleSave() {
+    const dirtyCount = Object.keys(edits).length;
+    if (!dirtyCount) { setDataEditing(false); return; }
+    setSaving(true); setSaveStatus(null);
+    try {
+      await updateRecord(LAYOUT, selected.recordId, edits);
+      const detail = await getRecord(LAYOUT, selected.recordId);
+      setSelected(detail.response.data[0]);
+      setEdits({}); setDataEditing(false); setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch { setSaveStatus('error'); }
+    finally { setSaving(false); }
   }
 
   const startResize = useCallback((e) => {
@@ -83,10 +234,10 @@ export default function Contacts() {
 
   const f = selected?.fieldData;
   const p = selected?.portalData;
+  const dirtyCount = Object.keys(edits).length;
 
   return (
     <div className="ct-container">
-      {/* Sidebar */}
       <aside className="ct-sidebar" style={{ width: navWidth }}>
         <div className="ct-sidebar-header">
           <div className="ct-sidebar-title">
@@ -99,29 +250,21 @@ export default function Contacts() {
           <div className="ct-search-wrap" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <span className="ct-search-icon">⌕</span>
-              <input
-                className="ct-search"
-                placeholder="Search…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+              <input className="ct-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <ColorLegend items={Object.entries(STATUS_COLOR).filter(([k]) => k !== 'default').map(([label, color]) => ({ label, color }))} />
           </div>
         </div>
 
         {records.length === 0 ? (
-          <div className="ct-loading">
-            {[...Array(8)].map((_, i) => <div key={i} className="ct-skeleton" />)}
-          </div>
+          <div className="ct-loading">{[...Array(8)].map((_, i) => <div key={i} className="ct-skeleton" />)}</div>
         ) : (
           <ul className="ct-list">
             {filtered.map(r => {
               const status = r.fieldData.Status;
               const color = STATUS_COLOR[status] || STATUS_COLOR.default;
               return (
-                <li
-                  key={r.recordId}
+                <li key={r.recordId}
                   className={`ct-list-item ${selected?.recordId === r.recordId ? 'active' : ''}`}
                   onClick={() => handleSelect(r)}
                   onMouseEnter={e => {
@@ -143,28 +286,19 @@ export default function Contacts() {
         )}
       </aside>
 
-      {/* Resize handle */}
       <div className="ct-resize-handle" onMouseDown={startResize} />
 
-      {/* List item hover tooltip */}
       {tooltip && (
         <div className="ct-hover-tooltip" style={{ top: tooltip.y, left: tooltip.x }}>
           {tooltip.r.fieldData['Name_Organization'] && (
-            <div className="ct-ht-row">
-              <span className="ct-ht-label">Org</span>
-              <span className="ct-ht-value">{tooltip.r.fieldData['Name_Organization']}</span>
-            </div>
+            <div className="ct-ht-row"><span className="ct-ht-label">Org</span><span className="ct-ht-value">{tooltip.r.fieldData['Name_Organization']}</span></div>
           )}
           {tooltip.r.fieldData['cntct_ADDR::Type'] && (
-            <div className="ct-ht-row">
-              <span className="ct-ht-label">Addr Type</span>
-              <span className="ct-ht-value">{tooltip.r.fieldData['cntct_ADDR::Type']}</span>
-            </div>
+            <div className="ct-ht-row"><span className="ct-ht-label">Addr Type</span><span className="ct-ht-value">{tooltip.r.fieldData['cntct_ADDR::Type']}</span></div>
           )}
         </div>
       )}
 
-      {/* Main */}
       <main className="ct-main">
         {!selected && (
           <div className="ct-empty-state">
@@ -175,7 +309,6 @@ export default function Contacts() {
 
         {selected && f && (
           <>
-            {/* Top bar */}
             <div className="ct-topbar">
               <div className="ct-topbar-left">
                 <div>
@@ -183,159 +316,58 @@ export default function Contacts() {
                   <div className="ct-meta-row">
                     {f.Type && <span className="ct-chip type">{f.Type}</span>}
                     {f.Status && (
-                      <span className="ct-chip status" style={{
-                        background: (STATUS_COLOR[f.Status] || '#64748b') + '22',
-                        color: STATUS_COLOR[f.Status] || '#64748b',
-                        borderColor: (STATUS_COLOR[f.Status] || '#64748b') + '44',
-                      }}>{f.Status}</span>
+                      <span className="ct-chip status" style={{ background: (STATUS_COLOR[f.Status]||'#64748b')+'22', color: STATUS_COLOR[f.Status]||'#64748b', borderColor: (STATUS_COLOR[f.Status]||'#64748b')+'44' }}>{f.Status}</span>
                     )}
                     {f.Industry && <span className="ct-chip muted">{f.Industry}</span>}
                   </div>
                 </div>
               </div>
+              <div className="ct-topbar-actions">
+                {saveStatus === 'saved' && <span className="ct-status saved">✓ Saved</span>}
+                {saveStatus === 'error' && <span className="ct-status error">✗ Failed</span>}
+                {!dataEditing ? (
+                  <>
+                    <button className="ct-btn-edit" onClick={() => { setDataEditing(true); setEditMode(false); }}>✎ Edit</button>
+                    <button className={`ct-btn-edit${editMode ? ' active' : ''}`} onClick={() => setEditMode(m => !m)}>⠿ Layout</button>
+                    {editMode && <button className="ct-btn-edit sm" onClick={resetLayout}>Reset</button>}
+                  </>
+                ) : (
+                  <>
+                    <button className="ct-btn-discard" onClick={handleDiscard} disabled={saving}>Discard</button>
+                    <button className="ct-btn-save" onClick={handleSave} disabled={saving || dirtyCount === 0}>
+                      {saving ? 'Saving…' : dirtyCount ? `Save ${dirtyCount} change${dirtyCount > 1 ? 's' : ''}` : 'Save'}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
+            <LayoutHint editMode={editMode} />
+
             <div className="ct-content">
+              <DndContext sensors={sensors} collisionDetection={closestCenter}
+                onDragStart={({ active }) => setActiveId(active.id)}
+                onDragEnd={handleSectionDragEnd}
+                onDragCancel={() => setActiveId(null)}
+              >
+                <SortableContext items={sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  {sections.map(section => {
+                    const isPortal = section.type === 'portal';
+                    if (!editMode && isPortal && !portalHasData(section.id, p)) return null;
+                    return (
+                      <SortableSection key={section.id} id={section.id} title={section.title} icon={section.icon} editMode={editMode}>
+                        <SectionContent section={section} fieldData={f} portalData={p}
+                          editMode={editMode} onFieldReorder={handleFieldReorder}
+                          edits={edits} onChange={handleFieldChange} dataEditing={dataEditing} />
+                      </SortableSection>
+                    );
+                  })}
+                </SortableContext>
+                <DragOverlay>
+                  {activeId && <SectionDragGhost title={sections.find(s => s.id === activeId)?.title} icon={sections.find(s => s.id === activeId)?.icon} />}
+                </DragOverlay>
+              </DndContext>
 
-              {/* Identity */}
-              <Section title="Identity" icon="◈">
-                <div className="ct-field-grid">
-                  {f.Name_Organization && <Field label="Name / Organization" value={f.Name_Organization} />}
-                  {f.Department && <Field label="Department" value={f.Department} />}
-                  {f.Source && <Field label="Source" value={f.Source} />}
-                  {f.Spouse && <Field label="Spouse" value={f.Spouse} />}
-                  {f.Birthdate && <Field label="Birthdate" value={f.Birthdate} />}
-                  {f['_kaf__qbo_id'] && <Field label="QuickBooks ID" value={f['_kaf__qbo_id']} mono />}
-                </div>
-              </Section>
-
-              {/* Phone */}
-              {p?.cntct_PHONE?.length > 0 && (
-                <Section title="Phone" icon="✆">
-                  <table className="ct-table">
-                    <thead><tr><th>Number</th><th>Type</th></tr></thead>
-                    <tbody>
-                      {p.cntct_PHONE.map((row, i) => (
-                        <tr key={i}>
-                          <td className="mono">{row['cntct_PHONE::Number']}</td>
-                          <td>{row['cntct_PHONE::Type']}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Section>
-              )}
-
-              {/* Email */}
-              {p?.cntct_INADR?.length > 0 && (
-                <Section title="Email" icon="✉">
-                  <table className="ct-table">
-                    <thead><tr><th>Address</th><th>Type</th></tr></thead>
-                    <tbody>
-                      {p.cntct_INADR.map((row, i) => (
-                        <tr key={i}>
-                          <td>{row['cntct_INADR::Address']}</td>
-                          <td>{row['cntct_INADR::Type']}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Section>
-              )}
-
-              {/* Address */}
-              {p?.cntct_ADDR?.length > 0 && (
-                <Section title="Address" icon="◎">
-                  <table className="ct-table">
-                    <thead><tr><th>Street</th><th>City</th><th>State</th><th>Zip</th><th>Type</th></tr></thead>
-                    <tbody>
-                      {p.cntct_ADDR.map((row, i) => (
-                        <tr key={i}>
-                          <td>{row['cntct_ADDR::Street']}</td>
-                          <td>{row['cntct_ADDR::City']}</td>
-                          <td>{row['cntct_ADDR::State']}</td>
-                          <td className="mono">{row['cntct_ADDR::Zip']}</td>
-                          <td>{row['cntct_ADDR::Type']}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Section>
-              )}
-
-              {/* Related Contacts */}
-              {p?.Portal__Contacts?.length > 0 && (
-                <Section title="Related Contacts" icon="◉">
-                  <table className="ct-table">
-                    <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Relationship</th></tr></thead>
-                    <tbody>
-                      {p.Portal__Contacts.map((row, i) => (
-                        <tr key={i}>
-                          <td>{row['cntct_RLTN::zz__Display__ct']}</td>
-                          <td className="mono">{row['cntct_rltn_cntct_PHONE::Number']}</td>
-                          <td>{row['cntct_rltn_cntct_INADR__email::Address']}</td>
-                          <td>{row['cntct_RLTN::zz__Display__ct']}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Section>
-              )}
-
-              {/* Estimates */}
-              {p?.['Portal__Estimates 2']?.length > 0 && (
-                <Section title="Estimates" icon="≡">
-                  <table className="ct-table">
-                    <thead><tr><th>ID</th><th>Date</th><th>Title</th><th className="num">Total</th><th>Status</th></tr></thead>
-                    <tbody>
-                      {p['Portal__Estimates 2'].map((row, i) => (
-                        <tr key={i}>
-                          <td className="mono">{row['cntct_ESTMT::_kpt__Estimate_ID']}</td>
-                          <td>{row['cntct_ESTMT::Date']}</td>
-                          <td>{row['cntct_ESTMT::Title']}</td>
-                          <td className="num">${Number(row['cntct_ESTMT::zz__Total__xn'] || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                          <td>{row['cntct_ESTMT::Status']}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Section>
-              )}
-
-              {/* Invoices */}
-              {p?.Portal__Invoices?.length > 0 && (
-                <Section title="Invoices" icon="$">
-                  <table className="ct-table">
-                    <thead><tr><th>QB Ref</th><th>Date</th><th className="num">Total</th><th className="num">Balance</th><th>Memo</th></tr></thead>
-                    <tbody>
-                      {p.Portal__Invoices.map((row, i) => (
-                        <tr key={i}>
-                          <td className="mono">{row['cntct_INVO::QuickBooks_Reference_Number']}</td>
-                          <td>{row['cntct_INVO::Date']}</td>
-                          <td className="num">${Number(row['cntct_INVO::zz__Total__xn'] || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                          <td className="num" style={{ color: Number(row['cntct_INVO::zz__Balance_Due__xs']) > 0 ? '#e8322a' : 'inherit' }}>
-                            ${Number(row['cntct_INVO::zz__Balance_Due__xs'] || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td>{row['cntct_INVO::Memo']}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Section>
-              )}
-
-              {/* Notes */}
-              {(f.Notes || f.Client_Alert || f.Keywords) && (
-                <Section title="Notes" icon="✎">
-                  <div className="ct-field-grid">
-                    {f.Client_Alert && <Field label="Client Alert" value={f.Client_Alert} />}
-                    {f.Keywords && <Field label="Keywords" value={f.Keywords} />}
-                    {f.Notes && <Field label="Notes" value={f.Notes} wide />}
-                  </div>
-                </Section>
-              )}
-
-              {/* Record info */}
               <div className="ct-record-footer">
                 ID {f._kpt__Contact_ID} · Created {f.zz__Created_On?.split(' ')[0]} by {f.zz__Created_By} · Modified {f.zz__Modified_On?.split(' ')[0]} by {f.zz__Modified_By}
               </div>
@@ -343,29 +375,6 @@ export default function Contacts() {
           </>
         )}
       </main>
-    </div>
-  );
-}
-
-function Section({ title, icon, children }) {
-  const [collapsed, setCollapsed] = useState(false);
-  return (
-    <div className="ct-section">
-      <div className="ct-section-header" onClick={() => setCollapsed(c => !c)}>
-        <span className="ct-section-icon">{icon}</span>
-        <h3>{title}</h3>
-        <span style={{ fontSize: 10, color: '#475569', marginLeft: 'auto', transition: 'transform 0.2s', display: 'inline-block', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▼</span>
-      </div>
-      {!collapsed && children}
-    </div>
-  );
-}
-
-function Field({ label, value, mono, wide }) {
-  return (
-    <div className={`ct-field${wide ? ' wide' : ''}`}>
-      <label>{label}</label>
-      <div className={`ct-value${mono ? ' mono' : ''}`}>{value || '—'}</div>
     </div>
   );
 }

@@ -1,127 +1,262 @@
 import { useState, useCallback, useRef } from 'react';
+import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAllRecords } from '../hooks/useAllRecords';
 import { getRecord, prefetchRecord, updateRecord } from '../api/filemaker';
+import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './CCS.css';
 
 const LAYOUT = 'RCD_New';
 
-const STATUS_OPTIONS = ['Proposed','Confirmed','In Progress','Complete','Cancelled','On Hold'];
-const PROJECT_TYPES  = ['Inspection','New Construction','Renovation','Repair','Training','Other'];
+const STATUS_OPTIONS  = ['Proposed','Confirmed','In Progress','Complete','Cancelled','On Hold'];
+const PROJECT_TYPES   = ['Inspection','New Construction','Renovation','Repair','Training','Other'];
 const BUILDER_OPTIONS = ['','Lucas Germano','Ian Doak','Mike Hicks','Sam Bates','Dan Smith','Chris Young'];
 
 const STATUS_COLOR = {
-  'Proposed':    '#e87722',
-  'Confirmed':   '#3b82f6',
-  'In Progress': '#a855f7',
-  'Complete':    '#22c55e',
-  'Cancelled':   '#64748b',
-  'On Hold':     '#f59e0b',
+  'Proposed':    '#e87722', 'Confirmed':   '#3b82f6', 'In Progress': '#a855f7',
+  'Complete':    '#22c55e', 'Cancelled':   '#64748b', 'On Hold':     '#f59e0b',
 };
-function statusColor(s) { return STATUS_COLOR[s] || '#64748b'; }
+const statusColor = s => STATUS_COLOR[s] || '#64748b';
 
-function fmt(val) { return val || '—'; }
-function fmtDate(val) {
+const fmtDate = val => {
   if (!val) return null;
   const d = new Date(val);
   return isNaN(d) ? val : d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
-}
-function fmtMoney(v) {
-  return v ? `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
-}
+};
+const fmtMoney = v => v ? `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
+const fmt = v => v || '—';
 
-// Editable field — renders input in edit mode, display value otherwise
-function EField({ fieldKey, value, edits, onChange, dataEditing, type = 'text', options, textarea, wide }) {
-  const val = fieldKey in edits ? edits[fieldKey] : (value ?? '');
+// ── Section definitions ───────────────────────────────────────────
+
+const DEFAULT_PRIMARY_SECTIONS = [
+  { id: 'contact',    title: 'Contact',        icon: '◉', type: 'contact' },
+  { id: 'financial',  title: 'Financial',      icon: '$', type: 'financial' },
+  { id: 'project',    title: 'Project',        icon: '◈', fields: ['Type of Project','Status','rcd start date','rcd end date','Report Date Sent','Confirmed'] },
+  { id: 'team',       title: 'Team',           icon: '⊞', fields: ['Lead Builder','Builder1','Builder2','Builder3'] },
+  { id: 'work_notes', title: 'Work & Notes',   icon: '✎', fields: ['Work Order','Notes'] },
+];
+
+const DEFAULT_CHECKLIST_SECTIONS = [
+  { id: 'pre_project', title: 'Pre-Project',        icon: '●', type: 'checklist' },
+  { id: 'contract',    title: 'Contract & Deposit',  icon: '●', type: 'checklist' },
+  { id: 'install',     title: 'Install Prep',        icon: '●', type: 'checklist' },
+  { id: 'event',       title: 'Event Prep',          icon: '●', type: 'checklist' },
+];
+
+const FIELD_LABELS = {
+  'Type of Project': 'Project Type', Status: 'Status',
+  'rcd start date': 'Start Date', 'rcd end date': 'End Date',
+  'Report Date Sent': 'Inspection Report Sent', Confirmed: 'Confirmed',
+  'Lead Builder': 'Lead Builder', Builder1: 'Builder 1', Builder2: 'Builder 2', Builder3: 'Builder 3',
+  'Work Order': 'Work Order', Notes: 'Notes',
+};
+
+const FIELD_CONFIG = {
+  'Type of Project':      { options: PROJECT_TYPES },
+  Status:                 { options: STATUS_OPTIONS, special: 'status' },
+  'rcd start date':       { type: 'date' },
+  'rcd end date':         { type: 'date' },
+  'Report Date Sent':     { type: 'date' },
+  Confirmed:              { type: 'date' },
+  'Lead Builder':         { options: BUILDER_OPTIONS },
+  Builder1:               { options: BUILDER_OPTIONS },
+  Builder2:               { options: BUILDER_OPTIONS },
+  Builder3:               { options: BUILDER_OPTIONS },
+  'Work Order':           { textarea: true, wide: true },
+  Notes:                  { textarea: true, wide: true },
+};
+
+const CHECKLIST_ITEMS = {
+  pre_project: [
+    ['pp_New_cust_exist_course_survey','Site Survey'],['pp_Created Client Folder','Client Folder Created'],
+    ['pp_Create CCS for Site Eval','CCS for Site Eval'],['p_CCS Estimate','CCS Estimate'],
+    ['p_Training Plan','Training Plan'],['p_Drawings','Drawings'],
+    ['p_Mark as Proposed','Mark as Proposed'],['pp_Sent PD Form','Sent PD Form'],
+  ],
+  contract: [
+    ['cd_Sent Contract','Sent Contract'],['cd_Add to Cal','Add to Calendar'],
+    ['cd_Received Contract','Received Contract'],['cd_Received Deposit','Received Deposit'],
+    ['cd_Received PO','Received PO'],['Final_Invoice_Received','Final Invoice Received'],
+  ],
+  install: [
+    ['iprep_Prefab List','Prefab List'],['iprep_Construction Layout','Construction Layout'],
+    ['iprep_Training','Training'],['iprep_Equipment','Equipment'],['iprep_Need Inspection','Need Inspection'],
+  ],
+  event: [
+    ['eprep_Setting Scheduled','Setting Scheduled'],['eprep_Setting Complete','Setting Complete'],
+    ['eprep_Dig Safe','Dig Safe'],['eprep_Equipment Requested','Equipment Requested'],
+    ['eprep_Equipment Reserved','Equipment Reserved'],['eprep_Poles Ordered','Poles Ordered'],
+    ['eprep_Poles Delivered','Poles Delivered'],['eprep_Climbing Holds Ordered','Holds Ordered'],
+    ['eprep_Climbing Holds Delivered','Holds Delivered'],['eprep_Tarps Mats Ordered','Tarps/Mats Ordered'],
+    ['eprep_Tarps Mats Delivered','Tarps/Mats Delivered'],['eprep_Specialty Hardware','Specialty Hardware'],
+    ['eprep_Lumber_ordered','Lumber Ordered'],['eprep_Lumber_ordered_delivered','Lumber Delivered'],
+    ['eprep_Permits','Permits'],
+  ],
+};
+
+// ── Field value renderer ──────────────────────────────────────────
+
+function FieldValue({ fieldKey, value, onChange, dataEditing, f }) {
+  const cfg = FIELD_CONFIG[fieldKey] || {};
   const ch = v => onChange(fieldKey, v);
+  const ro = !dataEditing;
 
-  if (!dataEditing) {
-    if (type === 'checkbox') {
-      return <span className={`ccs-chk ${Number(val) === 1 ? 'on' : 'off'}`}>{Number(val) === 1 ? '✓' : ''}</span>;
-    }
-    if (type === 'date') return <span className="ccs-block-value">{fmtDate(val) || '—'}</span>;
-    if (textarea) return <div className="ccs-textarea-display">{val || ''}</div>;
-    if (options) return <span className="ccs-block-value">{val || '—'}</span>;
-    return <span className="ccs-block-value">{val || '—'}</span>;
+  if (fieldKey === 'Status') {
+    if (ro) return f?.Status
+      ? <span className="sl-status-pill" style={{ color: statusColor(f.Status), borderColor: statusColor(f.Status)+'44', background: statusColor(f.Status)+'18' }}>{f.Status}</span>
+      : <span className="sl-value">—</span>;
+    return <select className="sl-select" value={value||''} onChange={e => ch(e.target.value)}>
+      <option value="">—</option>
+      {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>;
   }
 
-  if (type === 'checkbox') {
-    return (
-      <input
-        type="checkbox"
-        className="ccs-edit-check"
-        checked={Number(val) === 1}
-        onChange={e => ch(e.target.checked ? 1 : 0)}
-      />
-    );
+  if (cfg.type === 'date') {
+    if (ro) return <span className="sl-value">{fmtDate(value) || '—'}</span>;
+    const iso = value ? (() => { const p = value.split('/'); return p.length === 3 ? `${p[2]}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}` : ''; })() : '';
+    return <input type="date" className="sl-input" value={iso}
+      onChange={e => { const [y,m,d] = e.target.value.split('-'); ch(e.target.value ? `${m}/${d}/${y}` : ''); }} />;
   }
-  if (textarea) {
-    return (
-      <textarea
-        className="ccs-edit-textarea"
-        value={val}
-        onChange={e => ch(e.target.value)}
-        rows={6}
-      />
-    );
+
+  if (cfg.options) {
+    if (ro) return <span className="sl-value">{value || '—'}</span>;
+    return <select className="sl-select" value={value||''} onChange={e => ch(e.target.value)}>
+      <option value="">—</option>
+      {cfg.options.filter(Boolean).map(o => <option key={o} value={o}>{o}</option>)}
+    </select>;
   }
-  if (options) {
-    return (
-      <select className="ccs-edit-select" value={val} onChange={e => ch(e.target.value)}>
-        <option value="">—</option>
-        {options.map(o => <option key={o} value={o}>{o || '—'}</option>)}
-      </select>
-    );
+
+  if (cfg.textarea) {
+    if (ro) return <div className="sl-textarea-display">{value || '—'}</div>;
+    return <textarea className="sl-textarea" value={value||''} onChange={e => ch(e.target.value)} rows={5} />;
   }
-  if (type === 'date') {
-    // FMP date format: MM/DD/YYYY — input[type=date] needs YYYY-MM-DD
-    const iso = val ? (() => { const p = val.split('/'); return p.length === 3 ? `${p[2]}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}` : ''; })() : '';
-    return (
-      <input
-        type="date"
-        className="ccs-edit-input"
-        value={iso}
-        onChange={e => {
-          const [y,m,d] = e.target.value.split('-');
-          ch(e.target.value ? `${m}/${d}/${y}` : '');
-        }}
-      />
-    );
-  }
-  return (
-    <input
-      type={type}
-      className="ccs-edit-input"
-      value={val}
-      onChange={e => ch(e.target.value)}
-    />
-  );
+
+  if (ro) return <span className="sl-value">{value || '—'}</span>;
+  return <input className="sl-input" value={value||''} onChange={e => ch(e.target.value)} />;
 }
 
-function CheckRow({ label, fieldKey, sentFieldKey, value, edits, onChange, dataEditing, sentVal, sentFieldKeyLabel }) {
+// ── Section content renderer ──────────────────────────────────────
+
+function SectionContent({ section, f, editMode, onFieldReorder, edits, onChange, dataEditing, handleCheckToggle }) {
+  if (section.type === 'contact') {
+    return (
+      <div className="ccs-contact-body">
+        {[
+          ['Site', f.zz__Display_Organization__ct],
+          ['Individual', f.zz__Display_Contact__ct],
+          ['Address', f.Address_Block_Billing],
+          ['Email', f['rcd_cntct_INADR__email::zz__Address__ct']],
+          ['Phone', f['rcd_cntct_PHONE__work::Number']],
+          ['Mobile', f['rcd_cntct_PHONE__mobile::Number']],
+        ].filter(([, v]) => v).map(([label, val]) => (
+          <div key={label} className="ccs-info-row">
+            <span className="ccs-info-label">{label}</span>
+            {label === 'Email'
+              ? <a className="ccs-info-value link" href={`mailto:${val}`}>{val}</a>
+              : <span className="ccs-info-value">{val}</span>
+            }
+          </div>
+        ))}
+        <div className="sl-field-grid" style={{ marginTop: 8 }}>
+          {[['Distance to High5','Distance'],['Drive Time','Drive Time']].map(([fk, label]) => {
+            const saved = f?.[fk];
+            const value = fk in edits ? edits[fk] : saved;
+            const dirty = fk in edits && edits[fk] !== saved;
+            return (
+              <div key={fk} className={`sl-field${dirty ? ' dirty' : ''}`}>
+                {dirty && <span className="sl-dirty-dot" />}
+                <label>{label}</label>
+                {!dataEditing
+                  ? <span className="sl-value">{value || '—'}</span>
+                  : <input className="sl-input" value={value||''} onChange={e => onChange(fk, e.target.value)} />
+                }
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (section.type === 'financial') {
+    const finField = (fk, label, type) => {
+      const saved = f?.[fk]; const val = fk in edits ? edits[fk] : saved;
+      const dirty = fk in edits && saved !== edits[fk];
+      if (type === 'date') {
+        const iso = val ? (() => { const p = String(val).split('/'); return p.length === 3 ? `${p[2]}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}` : ''; })() : '';
+        return dataEditing
+          ? <input key={fk} type="date" className="sl-input sm" value={iso} onChange={e => { const [y,m,d] = e.target.value.split('-'); onChange(fk, e.target.value ? `${m}/${d}/${y}` : ''); }} />
+          : <span key={fk} className="sl-value sm">{fmtDate(val) || ''}</span>;
+      }
+      if (type === 'checkbox') {
+        const on = Number(val) === 1;
+        return <span key={fk} className={`ccs-chk-box${on ? ' on' : ''}${dataEditing ? ' clickable' : ''}`}
+          onClick={() => dataEditing && onChange(fk, on ? 0 : 1)}>{on ? '✓' : ''}</span>;
+      }
+      return dataEditing
+        ? <input key={fk} className="sl-input sm" value={val||''} onChange={e => onChange(fk, e.target.value)} />
+        : <span key={fk} className="sl-value sm">{val || ''}</span>;
+    };
+
+    return (
+      <div className="ccs-fin-table">
+        <div className="ccs-fin-row"><span className="ccs-fin-label">Estimate #</span>{finField('_kat__QuickBooks_Estimate_ID')}</div>
+        <div className="ccs-fin-row"><span className="ccs-fin-label">Contract</span>{finField('Contract_Date_Sent','Sent','date')}<span className="ccs-fin-recv">Received</span>{finField('cd_Received Contract','','checkbox')}</div>
+        <div className="ccs-fin-row"><span className="ccs-fin-label">Deposit Inv.</span><span /><span className="ccs-fin-recv">Received</span>{finField('cd_Received Deposit','','checkbox')}</div>
+        <div className="ccs-fin-row"><span className="ccs-fin-label">PO #</span>{finField('po_number')}<span className="ccs-fin-recv">Received</span>{finField('cd_Received PO','','checkbox')}</div>
+        <div className="ccs-fin-row"><span className="ccs-fin-label">Final Inv.</span>{finField('Final Sent','Sent','date')}<span className="ccs-fin-recv">Received</span>{finField('Final_Invoice_Received','','checkbox')}</div>
+        <div className="ccs-fin-row"><span className="ccs-fin-label">Invoice #</span>{finField('_kat__QuickBooks_Invoice_ID')}</div>
+      </div>
+    );
+  }
+
+  if (section.type === 'checklist') {
+    const items = CHECKLIST_ITEMS[section.id] || [];
+    return (
+      <div className="ccs-checks">
+        {items.map(([key, label]) => {
+          const val = key in edits ? edits[key] : f[key];
+          const on = Number(val) === 1;
+          return (
+            <div key={key} className={`ccs-check-item${on ? ' on' : ''}`}
+              onClick={() => dataEditing && handleCheckToggle(key, on)}
+              style={{ cursor: dataEditing ? 'pointer' : 'default' }}>
+              <span className={`ccs-chk-box${on ? ' on' : ''}`}>{on ? '✓' : ''}</span>
+              <span>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Data-driven field grid (project, team, work_notes)
   return (
-    <div className="ccs-fin-row">
-      <span className="ccs-fin-label">{label}</span>
-      <span className="ccs-fin-sent">
-        {sentFieldKey
-          ? <EField fieldKey={sentFieldKey} value={sentVal} edits={edits} onChange={onChange} dataEditing={dataEditing} type="date" />
-          : (sentVal ? fmtDate(sentVal) : '')}
-      </span>
-      <span className="ccs-fin-recv-label">Received</span>
-      <EField fieldKey={fieldKey} value={value} edits={edits} onChange={onChange} dataEditing={dataEditing} type="checkbox" />
-    </div>
+    <SortableFieldGrid sectionId={section.id} fields={section.fields} editMode={editMode} onReorder={onFieldReorder}>
+      {section.fields.map(fk => {
+        const saved = f?.[fk];
+        const value = fk in edits ? edits[fk] : saved;
+        const dirty = fk in edits && edits[fk] !== saved;
+        const cfg = FIELD_CONFIG[fk] || {};
+        return (
+          <SortableField key={fk} id={fk} editMode={editMode} dirty={dirty} wide={!!cfg.textarea}>
+            <label>{FIELD_LABELS[fk] || fk}</label>
+            <FieldValue fieldKey={fk} value={value} onChange={onChange} dataEditing={dataEditing} f={f} />
+          </SortableField>
+        );
+      })}
+    </SortableFieldGrid>
   );
 }
 
 function PortalTable({ columns, rows }) {
-  if (!rows?.length) return <p className="ccs-empty-portal">No records</p>;
+  if (!rows?.length) return <p className="sl-empty">No records</p>;
   return (
     <table className="ccs-portal-table">
       <thead><tr>{columns.map(c => <th key={c.key}>{c.label}</th>)}</tr></thead>
       <tbody>
         {rows.map((row, i) => (
-          <tr key={i}>
-            {columns.map(c => <td key={c.key}>{c.fmt ? c.fmt(row[c.key]) : fmt(row[c.key])}</td>)}
-          </tr>
+          <tr key={i}>{columns.map(c => <td key={c.key}>{c.fmt ? c.fmt(row[c.key]) : fmt(row[c.key])}</td>)}</tr>
         ))}
       </tbody>
     </table>
@@ -143,16 +278,22 @@ export default function CCS() {
     }),
   });
 
-  const [selected, setSelected]       = useState(null);
-  const [search, setSearch]           = useState('');
-  const [navWidth, setNavWidth]       = useState(300);
-  const [activeTab, setActiveTab]     = useState('primary');
+  const [selected, setSelected]         = useState(null);
+  const [search, setSearch]             = useState('');
+  const [navWidth, setNavWidth]         = useState(300);
+  const [activeTab, setActiveTab]       = useState('primary');
   const [activePortal, setActivePortal] = useState('estimates');
-  const [dataEditing, setDataEditing] = useState(false);
-  const [edits, setEdits]             = useState({});
-  const [saving, setSaving]           = useState(false);
-  const [saveStatus, setSaveStatus]   = useState(null);
+  const [dataEditing, setDataEditing]   = useState(false);
+  const [edits, setEdits]               = useState({});
+  const [saving, setSaving]             = useState(false);
+  const [saveStatus, setSaveStatus]     = useState(null);
   const isResizing = useRef(false);
+
+  const primary = useSortableLayout('ccs_layout_primary_v2', DEFAULT_PRIMARY_SECTIONS);
+  const checklists = useSortableLayout('ccs_layout_checklists_v2', DEFAULT_CHECKLIST_SECTIONS);
+
+  // Use the active tab's layout
+  const activeLayout = activeTab === 'primary' ? primary : activeTab === 'checklists' ? checklists : null;
 
   const startResize = useCallback((e) => {
     e.preventDefault();
@@ -191,14 +332,15 @@ export default function CCS() {
 
   async function handleSelect(r) {
     setEdits({}); setDataEditing(false); setSaveStatus(null);
-    setSelected(r);
-    setActiveTab('primary');
+    primary.setEditMode(false); checklists.setEditMode(false);
+    setSelected(r); setActiveTab('primary');
     getRecord(LAYOUT, r.recordId).then(detail => {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
     }).catch(() => {});
   }
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
+  const handleCheckToggle = useCallback((key, on) => handleFieldChange(key, on ? 0 : 1), [handleFieldChange]);
   const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
 
   const handleSave = async () => {
@@ -219,15 +361,13 @@ export default function CCS() {
   const f = selected?.fieldData || {};
   const portals = selected?.portalData || {};
   const estimates = portals['Portal__Estimates 2'] || [];
-  const invoices  = portals['Portal__Invoices']     || [];
-  const payments  = portals['Portal__Payments']     || [];
+  const invoices  = portals['Portal__Invoices']    || [];
+  const payments  = portals['Portal__Payments']    || [];
 
-  // Shared props passed to every EField
-  const ep = { edits, onChange: handleFieldChange, dataEditing };
+  const sharedSectionProps = { f, editMode: activeLayout?.editMode || false, edits, onChange: handleFieldChange, dataEditing, handleCheckToggle };
 
   return (
     <div className="ccs-root">
-      {/* Nav */}
       <nav className="ccs-nav" style={{ width: navWidth }}>
         <div className="ccs-nav-header">
           <span className="ccs-nav-title">CCS</span>
@@ -241,8 +381,7 @@ export default function CCS() {
             const rf = r.fieldData;
             const sc = statusColor(rf.Status);
             return (
-              <div
-                key={r.recordId}
+              <div key={r.recordId}
                 className={`ccs-list-item${selected?.recordId === r.recordId ? ' active' : ''}`}
                 onClick={() => handleSelect(r)}
                 onMouseEnter={() => prefetchRecord(LAYOUT, r.recordId)}
@@ -251,7 +390,7 @@ export default function CCS() {
                 <div className="ccs-list-meta">
                   <span className="ccs-list-contact">{rf.zz__Display_Contact__ct || ''}</span>
                   {rf.Status && (
-                    <span className="ccs-list-status" style={{ color: sc, borderColor: sc + '44', background: sc + '18' }}>{rf.Status}</span>
+                    <span className="ccs-list-status" style={{ color: sc, borderColor: sc+'44', background: sc+'18' }}>{rf.Status}</span>
                   )}
                 </div>
                 {rf['Type of Project'] && <div className="ccs-list-type">{rf['Type of Project']}</div>}
@@ -264,13 +403,11 @@ export default function CCS() {
 
       <div className="ccs-resize-handle" onMouseDown={startResize} />
 
-      {/* Main */}
       <main className="ccs-main">
         {!selected ? (
           <div className="ccs-empty"><div className="ccs-empty-icon">◈</div><p>Select a record</p></div>
         ) : (
           <div className="ccs-detail">
-            {/* Tab bar + action buttons */}
             <div className="ccs-tabs">
               <div className="ccs-tabs-left">
                 {[['primary','Primary Info'],['checklists','Checklists'],['financials','Financials']].map(([id,label]) => (
@@ -281,14 +418,19 @@ export default function CCS() {
                 {saveStatus === 'saved' && <span className="ccs-status-msg saved">✓ Saved</span>}
                 {saveStatus === 'error' && <span className="ccs-status-msg error">✗ Failed</span>}
                 {!dataEditing ? (
-                  <button className="ccs-action-btn" onClick={() => setDataEditing(true)}>✎ Edit</button>
+                  <>
+                    <button className="ccs-action-btn" onClick={() => { setDataEditing(true); primary.setEditMode(false); checklists.setEditMode(false); }}>✎ Edit</button>
+                    {activeLayout && (
+                      <>
+                        <button className={`ccs-action-btn${activeLayout.editMode ? ' active' : ''}`}
+                          onClick={() => { activeLayout.setEditMode(m => !m); setDataEditing(false); }}>⠿ Layout</button>
+                        {activeLayout.editMode && <button className="ccs-action-btn sm" onClick={activeLayout.resetLayout}>Reset</button>}
+                      </>
+                    )}
+                  </>
                 ) : (
                   <>
-                    <button
-                      className="ccs-action-btn save"
-                      onClick={handleSave}
-                      disabled={saving || !dirtyCount}
-                    >
+                    <button className="ccs-action-btn save" onClick={handleSave} disabled={saving || !dirtyCount}>
                       {saving ? '…' : dirtyCount ? `Save ${dirtyCount} change${dirtyCount > 1 ? 's' : ''}` : 'Save'}
                     </button>
                     <button className="ccs-action-btn" onClick={handleDiscard}>Discard</button>
@@ -297,261 +439,87 @@ export default function CCS() {
               </div>
             </div>
 
+            <LayoutHint editMode={activeLayout?.editMode} />
+
             <div className="ccs-tab-body">
 
               {/* ── PRIMARY INFO ── */}
               {activeTab === 'primary' && (
-                <>
-                  {/* Card 1: Contact info */}
-                  <div className="ccs-card">
-                    <div className="ccs-card-body ccs-contact-layout">
-                      <div className="ccs-contact-left">
-                        <div className="ccs-contact-block">
-                          <span className="ccs-block-label">Site</span>
-                          <span className="ccs-block-value primary">{fmt(f.zz__Display_Organization__ct)}</span>
-                        </div>
-                        <div className="ccs-contact-block">
-                          <span className="ccs-block-label">Individual</span>
-                          <span className="ccs-block-value">{fmt(f.zz__Display_Contact__ct)}</span>
-                        </div>
-                        {f.Address_Block_Billing && (
-                          <div className="ccs-contact-block">
-                            <span className="ccs-block-label">Address</span>
-                            <span className="ccs-block-value address">{f.Address_Block_Billing}</span>
-                          </div>
-                        )}
-                        <div className="ccs-contact-inline-row">
-                          {f['rcd_cntct_INADR__email::zz__Address__ct'] && (
-                            <div className="ccs-contact-block">
-                              <span className="ccs-block-label">Email</span>
-                              <a className="ccs-block-value link" href={`mailto:${f['rcd_cntct_INADR__email::zz__Address__ct']}`}>
-                                {f['rcd_cntct_INADR__email::zz__Address__ct']}
-                              </a>
-                            </div>
-                          )}
-                          <div className="ccs-contact-block">
-                            <span className="ccs-block-label">Phone</span>
-                            <span className="ccs-block-value">{fmt(f['rcd_cntct_PHONE__work::Number'])}</span>
-                          </div>
-                          <div className="ccs-contact-block">
-                            <span className="ccs-block-label">Mobile</span>
-                            <span className="ccs-block-value">{fmt(f['rcd_cntct_PHONE__mobile::Number'])}</span>
-                          </div>
-                        </div>
-                        <div className="ccs-distance-row">
-                          <div className="ccs-contact-block">
-                            <span className="ccs-block-label">Distance</span>
-                            <EField fieldKey="Distance to High5" value={f['Distance to High5']} {...ep} />
-                          </div>
-                          <div className="ccs-contact-block">
-                            <span className="ccs-block-label">Drive Time</span>
-                            <EField fieldKey="Drive Time" value={f['Drive Time']} {...ep} />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Financial status panel */}
-                      <div className="ccs-fin-panel">
-                        <div className="ccs-fin-row">
-                          <span className="ccs-fin-label">Estimate #</span>
-                          <span className="ccs-fin-sent">
-                            <EField fieldKey="_kat__QuickBooks_Estimate_ID" value={f._kat__QuickBooks_Estimate_ID} {...ep} />
-                          </span>
-                        </div>
-                        <CheckRow label="Contract" fieldKey="cd_Received Contract" sentFieldKey="Contract_Date_Sent"
-                          value={f['cd_Received Contract']} sentVal={f.Contract_Date_Sent} {...ep} />
-                        <CheckRow label="Deposit Inv." fieldKey="cd_Received Deposit"
-                          value={f['cd_Received Deposit']} sentVal={null} {...ep} />
-                        <div className="ccs-fin-row">
-                          <span className="ccs-fin-label">PO #</span>
-                          <span className="ccs-fin-sent"><EField fieldKey="po_number" value={f.po_number} {...ep} /></span>
-                          <span className="ccs-fin-recv-label">Received</span>
-                          <EField fieldKey="cd_Received PO" value={f['cd_Received PO']} {...ep} type="checkbox" />
-                        </div>
-                        <CheckRow label="Final Inv." fieldKey="Final_Invoice_Received" sentFieldKey="Final Sent"
-                          value={f.Final_Invoice_Received} sentVal={f['Final Sent']} {...ep} />
-                        <div className="ccs-fin-row">
-                          <span className="ccs-fin-label">Invoice #</span>
-                          <span className="ccs-fin-sent">
-                            <EField fieldKey="_kat__QuickBooks_Invoice_ID" value={f._kat__QuickBooks_Invoice_ID} {...ep} />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card 2: Project info */}
-                  <div className="ccs-card">
-                    <div className="ccs-card-title">CCS Project Info</div>
-                    <div className="ccs-card-body">
-                      <div className="ccs-proj-row">
-                        <div className="ccs-proj-field">
-                          <span className="ccs-block-label">Project Type</span>
-                          <EField fieldKey="Type of Project" value={f['Type of Project']} {...ep} options={PROJECT_TYPES} />
-                        </div>
-                        <div className="ccs-proj-field">
-                          <span className="ccs-block-label">Status</span>
-                          {dataEditing
-                            ? <EField fieldKey="Status" value={f.Status} {...ep} options={STATUS_OPTIONS} />
-                            : f.Status
-                              ? <span className="ccs-status-pill" style={{ color: statusColor(f.Status), borderColor: statusColor(f.Status)+'44', background: statusColor(f.Status)+'18' }}>{f.Status}</span>
-                              : <span className="ccs-block-value">—</span>
-                          }
-                        </div>
-                        <div className="ccs-proj-field">
-                          <span className="ccs-block-label">Start Date</span>
-                          <EField fieldKey="rcd start date" value={f['rcd start date']} {...ep} type="date" />
-                        </div>
-                        <div className="ccs-proj-field">
-                          <span className="ccs-block-label">End Date</span>
-                          <EField fieldKey="rcd end date" value={f['rcd end date']} {...ep} type="date" />
-                        </div>
-                        <div className="ccs-proj-field">
-                          <span className="ccs-block-label">Inspection Report Sent</span>
-                          <EField fieldKey="Report Date Sent" value={f['Report Date Sent']} {...ep} type="date" />
-                        </div>
-                        <div className="ccs-proj-field">
-                          <span className="ccs-block-label">Confirmed</span>
-                          <EField fieldKey="Confirmed" value={f.Confirmed} {...ep} type="date" />
-                        </div>
-                      </div>
-
-                      <div className="ccs-builders-row">
-                        {[
-                          ['Lead Builder', 'Lead Builder'],
-                          ['Builder1', 'Builder 1'],
-                          ['Builder2', 'Builder 2'],
-                          ['Builder3', 'Builder 3'],
-                        ].map(([fk, label]) => (
-                          <div key={fk} className="ccs-proj-field">
-                            <span className="ccs-block-label">{label}</span>
-                            <EField fieldKey={fk} value={f[fk]} {...ep} options={BUILDER_OPTIONS} />
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="ccs-wo-notes-row">
-                        <div className="ccs-wo-notes-field">
-                          <span className="ccs-block-label">Work Order</span>
-                          <EField fieldKey="Work Order" value={f['Work Order']} {...ep} textarea />
-                        </div>
-                        <div className="ccs-wo-notes-field">
-                          <span className="ccs-block-label">Notes</span>
-                          <EField fieldKey="Notes" value={f.Notes} {...ep} textarea />
-                        </div>
-                      </div>
-
-                      <div className="ccs-meta-footer">
-                        <span>Modified By <strong>{f.zz__Modified_By}</strong></span>
-                        <span>Modified On <strong>{f.zz__Modified_On}</strong></span>
-                        <span>Created By <strong>{f.zz__Created_By}</strong></span>
-                        <span>Created On <strong>{f.zz__Created_On}</strong></span>
-                        <span>RCD # <strong>{f._kpt__RCD_ID}</strong></span>
-                        <span>kanban_status <strong>{f.kanban_status || '—'}</strong></span>
-                        <span>record <strong>{selected.recordId}</strong></span>
-                        {f.kb_Status && <span>kb_Status <strong>{f.kb_Status}</strong></span>}
-                      </div>
-                    </div>
-                  </div>
-                </>
+                <DndContext sensors={primary.sensors} collisionDetection={closestCenter}
+                  onDragStart={({ active }) => primary.setActiveId(active.id)}
+                  onDragEnd={primary.handleSectionDragEnd}
+                  onDragCancel={() => primary.setActiveId(null)}
+                >
+                  <SortableContext items={primary.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                    {primary.sections.map(section => (
+                      <SortableSection key={section.id} id={section.id} title={section.title} icon={section.icon} editMode={primary.editMode}>
+                        <SectionContent section={section} onFieldReorder={primary.handleFieldReorder} {...sharedSectionProps} editMode={primary.editMode} />
+                      </SortableSection>
+                    ))}
+                  </SortableContext>
+                  <DragOverlay>
+                    {primary.activeId && <SectionDragGhost title={primary.sections.find(s => s.id === primary.activeId)?.title} icon={primary.sections.find(s => s.id === primary.activeId)?.icon} />}
+                  </DragOverlay>
+                </DndContext>
               )}
 
               {/* ── CHECKLISTS ── */}
               {activeTab === 'checklists' && (
-                <div className="ccs-checklist-grid">
-                  {[
-                    ['Pre-Project', [
-                      ['pp_New_cust_exist_course_survey', 'Site Survey'],
-                      ['pp_Created Client Folder', 'Client Folder Created'],
-                      ['pp_Create CCS for Site Eval', 'CCS for Site Eval'],
-                      ['p_CCS Estimate', 'CCS Estimate'],
-                      ['p_Training Plan', 'Training Plan'],
-                      ['p_Drawings', 'Drawings'],
-                      ['p_Mark as Proposed', 'Mark as Proposed'],
-                      ['pp_Sent PD Form', 'Sent PD Form'],
-                    ]],
-                    ['Contract & Deposit', [
-                      ['cd_Sent Contract', 'Sent Contract'],
-                      ['cd_Add to Cal', 'Add to Calendar'],
-                      ['cd_Received Contract', 'Received Contract'],
-                      ['cd_Received Deposit', 'Received Deposit'],
-                      ['cd_Received PO', 'Received PO'],
-                      ['Final_Invoice_Received', 'Final Invoice Received'],
-                    ]],
-                    ['Install Prep', [
-                      ['iprep_Prefab List', 'Prefab List'],
-                      ['iprep_Construction Layout', 'Construction Layout'],
-                      ['iprep_Training', 'Training'],
-                      ['iprep_Equipment', 'Equipment'],
-                      ['iprep_Need Inspection', 'Need Inspection'],
-                    ]],
-                    ['Event Prep', [
-                      ['eprep_Setting Scheduled', 'Setting Scheduled'],
-                      ['eprep_Setting Complete', 'Setting Complete'],
-                      ['eprep_Dig Safe', 'Dig Safe'],
-                      ['eprep_Equipment Requested', 'Equipment Requested'],
-                      ['eprep_Equipment Reserved', 'Equipment Reserved'],
-                      ['eprep_Poles Ordered', 'Poles Ordered'],
-                      ['eprep_Poles Delivered', 'Poles Delivered'],
-                      ['eprep_Climbing Holds Ordered', 'Holds Ordered'],
-                      ['eprep_Climbing Holds Delivered', 'Holds Delivered'],
-                      ['eprep_Tarps Mats Ordered', 'Tarps/Mats Ordered'],
-                      ['eprep_Tarps Mats Delivered', 'Tarps/Mats Delivered'],
-                      ['eprep_Specialty Hardware', 'Specialty Hardware'],
-                      ['eprep_Lumber_ordered', 'Lumber Ordered'],
-                      ['eprep_Lumber_ordered_delivered', 'Lumber Delivered'],
-                      ['eprep_Permits', 'Permits'],
-                    ]],
-                  ].map(([title, items]) => (
-                    <div key={title} className="ccs-card">
-                      <div className="ccs-card-title">{title}</div>
-                      <div className="ccs-card-body ccs-checks">
-                        {items.map(([key, label]) => {
-                          const val = key in edits ? edits[key] : f[key];
-                          const on = Number(val) === 1;
-                          return (
-                            <div
-                              key={key}
-                              className={`ccs-check-item${on ? ' on' : ''}`}
-                              onClick={() => dataEditing && handleFieldChange(key, on ? 0 : 1)}
-                              style={{ cursor: dataEditing ? 'pointer' : 'default' }}
-                            >
-                              <span className={`ccs-chk-box${on ? ' on' : ''}`}>{on ? '✓' : ''}</span>
-                              <span>{label}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
+                <>
+                  <DndContext sensors={checklists.sensors} collisionDetection={closestCenter}
+                    onDragStart={({ active }) => checklists.setActiveId(active.id)}
+                    onDragEnd={checklists.handleSectionDragEnd}
+                    onDragCancel={() => checklists.setActiveId(null)}
+                  >
+                    <div className="ccs-checklist-grid">
+                      <SortableContext items={checklists.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                        {checklists.sections.map(section => (
+                          <SortableSection key={section.id} id={section.id} title={section.title} icon={section.icon} editMode={checklists.editMode}>
+                            <SectionContent section={section} onFieldReorder={checklists.handleFieldReorder} {...sharedSectionProps} editMode={checklists.editMode} />
+                          </SortableSection>
+                        ))}
+                      </SortableContext>
                     </div>
-                  ))}
+                    <DragOverlay>
+                      {checklists.activeId && <SectionDragGhost title={checklists.sections.find(s => s.id === checklists.activeId)?.title} />}
+                    </DragOverlay>
+                  </DndContext>
 
-                  {(f['Job Sheet Poles']||f['Job Sheet Setting']||f['Job Sheet Equipment Rental']||
-                    f['Job Sheet Climbing Holds']||f['Job Sheet Mats Tarps']||f['Job Sheet Specialty Hardware']||
-                    f['Job Sheet Lumber Order']||f['Job Sheet Permits']) && (
-                    <div className="ccs-card ccs-full-width">
-                      <div className="ccs-card-title">Job Sheet</div>
-                      <div className="ccs-card-body ccs-job-sheet-grid">
-                        {[
-                          ['Poles','Job Sheet Poles'],['Setting','Job Sheet Setting'],
-                          ['Equipment Rental','Job Sheet Equipment Rental'],['Climbing Holds','Job Sheet Climbing Holds'],
-                          ['Mats / Tarps','Job Sheet Mats Tarps'],['Specialty Hardware','Job Sheet Specialty Hardware'],
-                          ['Lumber Order','Job Sheet Lumber Order'],['Permits','Job Sheet Permits'],
-                        ].map(([label, key]) => (
-                          <div key={key} className="ccs-proj-field">
-                            <span className="ccs-block-label">{label}</span>
-                            <EField fieldKey={key} value={f[key]} {...ep} />
+                  {/* Job Sheet — fixed */}
+                  {(f['Job Sheet Poles']||f['Job Sheet Setting']||f['Job Sheet Equipment Rental']||f['Job Sheet Climbing Holds']||
+                    f['Job Sheet Mats Tarps']||f['Job Sheet Specialty Hardware']||f['Job Sheet Lumber Order']||f['Job Sheet Permits']) && (
+                    <div className="sl-section" style={{ marginTop: 12 }}>
+                      <div className="sl-section-header" style={{ cursor: 'default' }}>
+                        <span className="sl-section-icon">⊞</span>
+                        <h3 style={{ flex: 1 }}>Job Sheet</h3>
+                      </div>
+                      <div className="sl-field-grid">
+                        {[['Poles','Job Sheet Poles'],['Setting','Job Sheet Setting'],['Equipment Rental','Job Sheet Equipment Rental'],
+                          ['Climbing Holds','Job Sheet Climbing Holds'],['Mats / Tarps','Job Sheet Mats Tarps'],
+                          ['Specialty Hardware','Job Sheet Specialty Hardware'],['Lumber Order','Job Sheet Lumber Order'],
+                          ['Permits','Job Sheet Permits']].map(([label, key]) => (
+                          <div key={key} className="sl-field">
+                            <label>{label}</label>
+                            {!dataEditing
+                              ? <span className="sl-value">{f[key] || '—'}</span>
+                              : <input className="sl-input" value={(key in edits ? edits[key] : f[key]) || ''} onChange={e => handleFieldChange(key, e.target.value)} />
+                            }
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-                </div>
+                </>
               )}
 
               {/* ── FINANCIALS ── */}
               {activeTab === 'financials' && (
-                <div className="ccs-card">
-                  <div className="ccs-card-body">
+                <div className="sl-section">
+                  <div className="sl-section-header" style={{ cursor: 'default' }}>
+                    <span className="sl-section-icon">$</span>
+                    <h3 style={{ flex: 1 }}>Financials</h3>
+                  </div>
+                  <div>
                     <div className="ccs-portal-tabs">
                       {[['estimates','Estimates',estimates.length],['invoices','Invoices',invoices.length],['payments','Payments',payments.length]].map(([id,label,count]) => (
                         <button key={id} className={`ccs-portal-tab${activePortal===id?' active':''}`} onClick={() => setActivePortal(id)}>
@@ -559,43 +527,24 @@ export default function CCS() {
                         </button>
                       ))}
                     </div>
-                    {activePortal === 'estimates' && (
-                      <PortalTable
-                        columns={[
-                          { key: 'cntct_ESTMT::Title', label: 'Title' },
-                          { key: 'cntct_ESTMT::Date', label: 'Date', fmt: fmtDate },
-                          { key: 'cntct_ESTMT::Status', label: 'Status' },
-                          { key: 'cntct_ESTMT::zz__Total__xn', label: 'Total', fmt: fmtMoney },
-                        ]}
-                        rows={estimates}
-                      />
-                    )}
-                    {activePortal === 'invoices' && (
-                      <PortalTable
-                        columns={[
-                          { key: 'cntct_INVO::QuickBooks_Reference_Number', label: 'Ref #' },
-                          { key: 'cntct_INVO::Date', label: 'Date', fmt: fmtDate },
-                          { key: 'cntct_INVO::zz__Total__xn', label: 'Total', fmt: fmtMoney },
-                          { key: 'cntct_INVO::zz__Balance_Due__cn', label: 'Balance', fmt: fmtMoney },
-                        ]}
-                        rows={invoices}
-                      />
-                    )}
-                    {activePortal === 'payments' && (
-                      <PortalTable
-                        columns={[
-                          { key: 'cntct_PMT::Date', label: 'Date', fmt: fmtDate },
-                          { key: 'cntct_PMT::Method', label: 'Method' },
-                          { key: 'cntct_PMT::Amount', label: 'Amount', fmt: fmtMoney },
-                          { key: 'cntct_PMT::zz__Balance__cn', label: 'Balance', fmt: fmtMoney },
-                        ]}
-                        rows={payments}
-                      />
-                    )}
+                    {activePortal === 'estimates' && <PortalTable columns={[{key:'cntct_ESTMT::Title',label:'Title'},{key:'cntct_ESTMT::Date',label:'Date',fmt:fmtDate},{key:'cntct_ESTMT::Status',label:'Status'},{key:'cntct_ESTMT::zz__Total__xn',label:'Total',fmt:fmtMoney}]} rows={estimates} />}
+                    {activePortal === 'invoices' && <PortalTable columns={[{key:'cntct_INVO::QuickBooks_Reference_Number',label:'Ref #'},{key:'cntct_INVO::Date',label:'Date',fmt:fmtDate},{key:'cntct_INVO::zz__Total__xn',label:'Total',fmt:fmtMoney},{key:'cntct_INVO::zz__Balance_Due__cn',label:'Balance',fmt:fmtMoney}]} rows={invoices} />}
+                    {activePortal === 'payments' && <PortalTable columns={[{key:'cntct_PMT::Date',label:'Date',fmt:fmtDate},{key:'cntct_PMT::Method',label:'Method'},{key:'cntct_PMT::Amount',label:'Amount',fmt:fmtMoney},{key:'cntct_PMT::zz__Balance__cn',label:'Balance',fmt:fmtMoney}]} rows={payments} />}
                   </div>
                 </div>
               )}
 
+              {/* Meta footer */}
+              {activeTab === 'primary' && (
+                <div className="ccs-meta-footer">
+                  <span>Modified By <strong>{f.zz__Modified_By}</strong></span>
+                  <span>Modified On <strong>{f.zz__Modified_On}</strong></span>
+                  <span>Created By <strong>{f.zz__Created_By}</strong></span>
+                  <span>Created On <strong>{f.zz__Created_On}</strong></span>
+                  <span>RCD # <strong>{f._kpt__RCD_ID}</strong></span>
+                  {f.kanban_status && <span>kanban_status <strong>{f.kanban_status}</strong></span>}
+                </div>
+              )}
             </div>
           </div>
         )}

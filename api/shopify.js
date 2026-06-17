@@ -11,7 +11,6 @@ export default async function handler(req, res) {
   const base = `https://${store}/admin/api/2024-01`;
   const headers = {
     'X-Shopify-Access-Token': token,
-    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
   };
 
