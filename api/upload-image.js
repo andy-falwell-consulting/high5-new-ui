@@ -54,7 +54,15 @@ export default async function handler(req, res) {
 
     if (upstream.status === 401) {
       sessionToken = null;
-      return res.status(401).json({ error: 'FMP token expired — retry' });
+      const token2 = await getToken(db);
+      const upstream2 = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token2}` },
+        body: formData,
+      });
+      const data2 = await upstream2.json();
+      if (!upstream2.ok) return res.status(upstream2.status).json(data2);
+      return res.status(200).json({ ok: true });
     }
 
     const data = await upstream.json();

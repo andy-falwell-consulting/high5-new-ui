@@ -306,6 +306,7 @@ export default function ProductsAndServicesV2() {
   const [syncStatus, setSyncStatus] = useState({});
   const [showLightbox, setShowLightbox] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imgBust, setImgBust] = useState(null);
   const imgInputRef = useRef(null);
   const isResizing = useRef(false);
 
@@ -343,7 +344,7 @@ export default function ProductsAndServicesV2() {
   });
 
   async function handleSelect(r) {
-    setEdits({}); setDataEditing(false); setSaveStatus(null);
+    setEdits({}); setDataEditing(false); setSaveStatus(null); setImgBust(null);
     setSelected(r); // show immediately — all field data is already in the list record
     // Fetch full record in background to get portal data (BOM), no spinner
     getRecord(LAYOUT, r.recordId).then(detail => {
@@ -457,6 +458,7 @@ export default function ProductsAndServicesV2() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setImgBust(Date.now());
       // Re-fetch record so the new image appears
       const fresh = await getRecord(LAYOUT, selected.recordId);
       const updated = fresh.response?.data?.[0];
@@ -499,7 +501,8 @@ export default function ProductsAndServicesV2() {
   const portalData = selected?.portalData;
   const catColor = CATEGORY_COLORS[f.Category] || '#64748b';
   const dirtyCount = Object.keys(edits).length;
-  const imgSrc = f.Picture ? containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected?.recordId }) : null;
+  const imgSrcBase = f.Picture ? containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected?.recordId }) : null;
+  const imgSrc = imgSrcBase ? (imgBust ? `${imgSrcBase}&t=${imgBust}` : imgSrcBase) : null;
 
   return (
     <div className="v2-container">
