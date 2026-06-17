@@ -9,7 +9,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getRecord, updateRecord, addPortalRow, containerImageUrl, createRecord } from '../api/filemaker';
-import { getCurrentEnv, getCurrentEnvId } from '../config/fmpEnvironments';
+import { getCurrentEnv } from '../config/fmpEnvironments';
 import ColorLegend from './ColorLegend';
 import BomPickerModal from './BomPickerModal';
 import NewItemModal from './NewItemModal';
@@ -620,9 +620,7 @@ export default function ProductsAndServicesV2() {
                 {saveStatus === 'error' && <span className="v2-status error">✗ Failed</span>}
                 {!dataEditing ? (
                   <>
-                    {getCurrentEnvId() === 'development' && (
-                      <button className="v2-btn ghost" onClick={() => { setDataEditing(true); setEditMode(false); }}>✎ Edit</button>
-                    )}
+                    <button className="v2-btn ghost" onClick={() => { setDataEditing(true); setEditMode(false); }}>✎ Edit</button>
                     <button className={`v2-btn ghost ${editMode ? 'active' : ''}`} onClick={() => setEditMode(e => !e)}>⠿ Layout</button>
                     {editMode && <button className="v2-btn ghost sm" onClick={() => { setSections(DEFAULT_SECTIONS); saveLayout(DEFAULT_SECTIONS); }}>Reset</button>}
                   </>

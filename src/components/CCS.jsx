@@ -1,9 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
 import { useAllRecords } from '../hooks/useAllRecords';
-import { getRecord, prefetchRecord } from '../api/filemaker';
+import { getRecord, prefetchRecord, updateRecord } from '../api/filemaker';
 import './CCS.css';
 
 const LAYOUT = 'RCD_New';
+
+const STATUS_OPTIONS = ['Proposed','Confirmed','In Progress','Complete','Cancelled','On Hold'];
+const PROJECT_TYPES  = ['Inspection','New Construction','Renovation','Repair','Training','Other'];
+const BUILDER_OPTIONS = ['','Lucas Germano','Ian Doak','Mike Hicks','Sam Bates','Dan Smith','Chris Young'];
 
 const STATUS_COLOR = {
   'Proposed':    '#e87722',
@@ -21,18 +25,89 @@ function fmtDate(val) {
   const d = new Date(val);
   return isNaN(d) ? val : d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
 }
-
-function Check({ val }) {
-  return <span className={`ccs-chk ${Number(val) === 1 ? 'on' : 'off'}`}>{Number(val) === 1 ? '✓' : ''}</span>;
+function fmtMoney(v) {
+  return v ? `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
 }
 
-function CheckRow({ label, sentVal, sentLabel, receivedVal }) {
+// Editable field — renders input in edit mode, display value otherwise
+function EField({ fieldKey, value, edits, onChange, dataEditing, type = 'text', options, textarea, wide }) {
+  const val = fieldKey in edits ? edits[fieldKey] : (value ?? '');
+  const ch = v => onChange(fieldKey, v);
+
+  if (!dataEditing) {
+    if (type === 'checkbox') {
+      return <span className={`ccs-chk ${Number(val) === 1 ? 'on' : 'off'}`}>{Number(val) === 1 ? '✓' : ''}</span>;
+    }
+    if (type === 'date') return <span className="ccs-block-value">{fmtDate(val) || '—'}</span>;
+    if (textarea) return <div className="ccs-textarea-display">{val || ''}</div>;
+    if (options) return <span className="ccs-block-value">{val || '—'}</span>;
+    return <span className="ccs-block-value">{val || '—'}</span>;
+  }
+
+  if (type === 'checkbox') {
+    return (
+      <input
+        type="checkbox"
+        className="ccs-edit-check"
+        checked={Number(val) === 1}
+        onChange={e => ch(e.target.checked ? 1 : 0)}
+      />
+    );
+  }
+  if (textarea) {
+    return (
+      <textarea
+        className="ccs-edit-textarea"
+        value={val}
+        onChange={e => ch(e.target.value)}
+        rows={6}
+      />
+    );
+  }
+  if (options) {
+    return (
+      <select className="ccs-edit-select" value={val} onChange={e => ch(e.target.value)}>
+        <option value="">—</option>
+        {options.map(o => <option key={o} value={o}>{o || '—'}</option>)}
+      </select>
+    );
+  }
+  if (type === 'date') {
+    // FMP date format: MM/DD/YYYY — input[type=date] needs YYYY-MM-DD
+    const iso = val ? (() => { const p = val.split('/'); return p.length === 3 ? `${p[2]}-${p[0].padStart(2,'0')}-${p[1].padStart(2,'0')}` : ''; })() : '';
+    return (
+      <input
+        type="date"
+        className="ccs-edit-input"
+        value={iso}
+        onChange={e => {
+          const [y,m,d] = e.target.value.split('-');
+          ch(e.target.value ? `${m}/${d}/${y}` : '');
+        }}
+      />
+    );
+  }
+  return (
+    <input
+      type={type}
+      className="ccs-edit-input"
+      value={val}
+      onChange={e => ch(e.target.value)}
+    />
+  );
+}
+
+function CheckRow({ label, fieldKey, sentFieldKey, value, edits, onChange, dataEditing, sentVal, sentFieldKeyLabel }) {
   return (
     <div className="ccs-fin-row">
       <span className="ccs-fin-label">{label}</span>
-      <span className="ccs-fin-sent">{sentVal ? fmtDate(sentVal) || sentLabel || '' : ''}</span>
+      <span className="ccs-fin-sent">
+        {sentFieldKey
+          ? <EField fieldKey={sentFieldKey} value={sentVal} edits={edits} onChange={onChange} dataEditing={dataEditing} type="date" />
+          : (sentVal ? fmtDate(sentVal) : '')}
+      </span>
       <span className="ccs-fin-recv-label">Received</span>
-      <Check val={receivedVal} />
+      <EField fieldKey={fieldKey} value={value} edits={edits} onChange={onChange} dataEditing={dataEditing} type="checkbox" />
     </div>
   );
 }
@@ -53,10 +128,6 @@ function PortalTable({ columns, rows }) {
   );
 }
 
-function fmtMoney(v) {
-  return v ? `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
-}
-
 export default function CCS() {
   const { records, total } = useAllRecords(LAYOUT, {
     slimForStorage: r => ({
@@ -72,11 +143,15 @@ export default function CCS() {
     }),
   });
 
-  const [selected, setSelected] = useState(null);
-  const [search, setSearch] = useState('');
-  const [navWidth, setNavWidth] = useState(300);
-  const [activeTab, setActiveTab] = useState('primary');
+  const [selected, setSelected]       = useState(null);
+  const [search, setSearch]           = useState('');
+  const [navWidth, setNavWidth]       = useState(300);
+  const [activeTab, setActiveTab]     = useState('primary');
   const [activePortal, setActivePortal] = useState('estimates');
+  const [dataEditing, setDataEditing] = useState(false);
+  const [edits, setEdits]             = useState({});
+  const [saving, setSaving]           = useState(false);
+  const [saveStatus, setSaveStatus]   = useState(null);
   const isResizing = useRef(false);
 
   const startResize = useCallback((e) => {
@@ -115,6 +190,7 @@ export default function CCS() {
   });
 
   async function handleSelect(r) {
+    setEdits({}); setDataEditing(false); setSaveStatus(null);
     setSelected(r);
     setActiveTab('primary');
     getRecord(LAYOUT, r.recordId).then(detail => {
@@ -122,11 +198,32 @@ export default function CCS() {
     }).catch(() => {});
   }
 
+  const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
+  const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
+
+  const handleSave = async () => {
+    if (!selected || !Object.keys(edits).length) return;
+    setSaving(true); setSaveStatus(null);
+    try {
+      const res = await updateRecord(LAYOUT, selected.recordId, edits);
+      if (res.messages?.[0]?.code === '0') {
+        setSelected(p => ({ ...p, fieldData: { ...p.fieldData, ...edits } }));
+        setEdits({}); setDataEditing(false); setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(null), 3000);
+      } else { setSaveStatus('error'); }
+    } catch { setSaveStatus('error'); }
+    finally { setSaving(false); }
+  };
+
+  const dirtyCount = Object.keys(edits).length;
   const f = selected?.fieldData || {};
   const portals = selected?.portalData || {};
   const estimates = portals['Portal__Estimates 2'] || [];
   const invoices  = portals['Portal__Invoices']     || [];
   const payments  = portals['Portal__Payments']     || [];
+
+  // Shared props passed to every EField
+  const ep = { edits, onChange: handleFieldChange, dataEditing };
 
   return (
     <div className="ccs-root">
@@ -173,11 +270,31 @@ export default function CCS() {
           <div className="ccs-empty"><div className="ccs-empty-icon">◈</div><p>Select a record</p></div>
         ) : (
           <div className="ccs-detail">
-            {/* Tab bar */}
+            {/* Tab bar + action buttons */}
             <div className="ccs-tabs">
-              {[['primary','Primary Info'],['checklists','Checklists'],['financials','Financials']].map(([id,label]) => (
-                <button key={id} className={`ccs-tab${activeTab===id?' active':''}`} onClick={() => setActiveTab(id)}>{label}</button>
-              ))}
+              <div className="ccs-tabs-left">
+                {[['primary','Primary Info'],['checklists','Checklists'],['financials','Financials']].map(([id,label]) => (
+                  <button key={id} className={`ccs-tab${activeTab===id?' active':''}`} onClick={() => setActiveTab(id)}>{label}</button>
+                ))}
+              </div>
+              <div className="ccs-tabs-actions">
+                {saveStatus === 'saved' && <span className="ccs-status-msg saved">✓ Saved</span>}
+                {saveStatus === 'error' && <span className="ccs-status-msg error">✗ Failed</span>}
+                {!dataEditing ? (
+                  <button className="ccs-action-btn" onClick={() => setDataEditing(true)}>✎ Edit</button>
+                ) : (
+                  <>
+                    <button
+                      className="ccs-action-btn save"
+                      onClick={handleSave}
+                      disabled={saving || !dirtyCount}
+                    >
+                      {saving ? '…' : dirtyCount ? `Save ${dirtyCount} change${dirtyCount > 1 ? 's' : ''}` : 'Save'}
+                    </button>
+                    <button className="ccs-action-btn" onClick={handleDiscard}>Discard</button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="ccs-tab-body">
@@ -188,7 +305,6 @@ export default function CCS() {
                   {/* Card 1: Contact info */}
                   <div className="ccs-card">
                     <div className="ccs-card-body ccs-contact-layout">
-                      {/* Left: site/contact/address/phone */}
                       <div className="ccs-contact-left">
                         <div className="ccs-contact-block">
                           <span className="ccs-block-label">Site</span>
@@ -225,33 +341,40 @@ export default function CCS() {
                         <div className="ccs-distance-row">
                           <div className="ccs-contact-block">
                             <span className="ccs-block-label">Distance</span>
-                            <span className="ccs-block-value">{fmt(f['Distance to High5'])}</span>
+                            <EField fieldKey="Distance to High5" value={f['Distance to High5']} {...ep} />
                           </div>
                           <div className="ccs-contact-block">
                             <span className="ccs-block-label">Drive Time</span>
-                            <span className="ccs-block-value">{fmt(f['Drive Time'])}</span>
+                            <EField fieldKey="Drive Time" value={f['Drive Time']} {...ep} />
                           </div>
                         </div>
                       </div>
 
-                      {/* Right: financial status */}
+                      {/* Financial status panel */}
                       <div className="ccs-fin-panel">
                         <div className="ccs-fin-row">
                           <span className="ccs-fin-label">Estimate #</span>
-                          <span className="ccs-fin-sent">{fmt(f._kat__QuickBooks_Estimate_ID)}</span>
+                          <span className="ccs-fin-sent">
+                            <EField fieldKey="_kat__QuickBooks_Estimate_ID" value={f._kat__QuickBooks_Estimate_ID} {...ep} />
+                          </span>
                         </div>
-                        <CheckRow label="Contract" sentVal={f.Contract_Date_Sent} receivedVal={f['cd_Received Contract']} />
-                        <CheckRow label="Deposit Inv." sentVal={null} receivedVal={f['cd_Received Deposit']} />
+                        <CheckRow label="Contract" fieldKey="cd_Received Contract" sentFieldKey="Contract_Date_Sent"
+                          value={f['cd_Received Contract']} sentVal={f.Contract_Date_Sent} {...ep} />
+                        <CheckRow label="Deposit Inv." fieldKey="cd_Received Deposit"
+                          value={f['cd_Received Deposit']} sentVal={null} {...ep} />
                         <div className="ccs-fin-row">
                           <span className="ccs-fin-label">PO #</span>
-                          <span className="ccs-fin-sent">{fmt(f.po_number)}</span>
+                          <span className="ccs-fin-sent"><EField fieldKey="po_number" value={f.po_number} {...ep} /></span>
                           <span className="ccs-fin-recv-label">Received</span>
-                          <Check val={f['cd_Received PO']} />
+                          <EField fieldKey="cd_Received PO" value={f['cd_Received PO']} {...ep} type="checkbox" />
                         </div>
-                        <CheckRow label="Final Inv." sentVal={f['Final Sent']} receivedVal={f.Final_Invoice_Received} />
+                        <CheckRow label="Final Inv." fieldKey="Final_Invoice_Received" sentFieldKey="Final Sent"
+                          value={f.Final_Invoice_Received} sentVal={f['Final Sent']} {...ep} />
                         <div className="ccs-fin-row">
                           <span className="ccs-fin-label">Invoice #</span>
-                          <span className="ccs-fin-sent">{fmt(f._kat__QuickBooks_Invoice_ID)}</span>
+                          <span className="ccs-fin-sent">
+                            <EField fieldKey="_kat__QuickBooks_Invoice_ID" value={f._kat__QuickBooks_Invoice_ID} {...ep} />
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -261,58 +384,63 @@ export default function CCS() {
                   <div className="ccs-card">
                     <div className="ccs-card-title">CCS Project Info</div>
                     <div className="ccs-card-body">
-                      {/* Row 1: type, status, dates */}
                       <div className="ccs-proj-row">
                         <div className="ccs-proj-field">
                           <span className="ccs-block-label">Project Type</span>
-                          <span className="ccs-block-value">{fmt(f['Type of Project'])}</span>
+                          <EField fieldKey="Type of Project" value={f['Type of Project']} {...ep} options={PROJECT_TYPES} />
                         </div>
                         <div className="ccs-proj-field">
                           <span className="ccs-block-label">Status</span>
-                          {f.Status
-                            ? <span className="ccs-status-pill" style={{ color: statusColor(f.Status), borderColor: statusColor(f.Status)+'44', background: statusColor(f.Status)+'18' }}>{f.Status}</span>
-                            : <span className="ccs-block-value">—</span>
+                          {dataEditing
+                            ? <EField fieldKey="Status" value={f.Status} {...ep} options={STATUS_OPTIONS} />
+                            : f.Status
+                              ? <span className="ccs-status-pill" style={{ color: statusColor(f.Status), borderColor: statusColor(f.Status)+'44', background: statusColor(f.Status)+'18' }}>{f.Status}</span>
+                              : <span className="ccs-block-value">—</span>
                           }
                         </div>
                         <div className="ccs-proj-field">
                           <span className="ccs-block-label">Start Date</span>
-                          <span className="ccs-block-value">{fmtDate(f['rcd start date']) || '—'}</span>
+                          <EField fieldKey="rcd start date" value={f['rcd start date']} {...ep} type="date" />
                         </div>
                         <div className="ccs-proj-field">
                           <span className="ccs-block-label">End Date</span>
-                          <span className="ccs-block-value">{fmtDate(f['rcd end date']) || '—'}</span>
+                          <EField fieldKey="rcd end date" value={f['rcd end date']} {...ep} type="date" />
                         </div>
-                        {f['Report Date Sent'] && (
-                          <div className="ccs-proj-field">
-                            <span className="ccs-block-label">Inspection Report Sent</span>
-                            <span className="ccs-block-value">{fmtDate(f['Report Date Sent'])}</span>
-                          </div>
-                        )}
+                        <div className="ccs-proj-field">
+                          <span className="ccs-block-label">Inspection Report Sent</span>
+                          <EField fieldKey="Report Date Sent" value={f['Report Date Sent']} {...ep} type="date" />
+                        </div>
+                        <div className="ccs-proj-field">
+                          <span className="ccs-block-label">Confirmed</span>
+                          <EField fieldKey="Confirmed" value={f.Confirmed} {...ep} type="date" />
+                        </div>
                       </div>
 
-                      {/* Row 2: builders */}
                       <div className="ccs-builders-row">
-                        {[['Lead Builder', f['Lead Builder']], ['Builder 1', f.Builder1], ['Builder 2', f.Builder2], ['Builder 3', f.Builder3]].map(([label, val]) => (
-                          <div key={label} className="ccs-proj-field">
+                        {[
+                          ['Lead Builder', 'Lead Builder'],
+                          ['Builder1', 'Builder 1'],
+                          ['Builder2', 'Builder 2'],
+                          ['Builder3', 'Builder 3'],
+                        ].map(([fk, label]) => (
+                          <div key={fk} className="ccs-proj-field">
                             <span className="ccs-block-label">{label}</span>
-                            <span className="ccs-block-value">{val || '—'}</span>
+                            <EField fieldKey={fk} value={f[fk]} {...ep} options={BUILDER_OPTIONS} />
                           </div>
                         ))}
                       </div>
 
-                      {/* Row 3: work order + notes */}
                       <div className="ccs-wo-notes-row">
                         <div className="ccs-wo-notes-field">
                           <span className="ccs-block-label">Work Order</span>
-                          <div className="ccs-textarea-display">{f['Work Order'] || ''}</div>
+                          <EField fieldKey="Work Order" value={f['Work Order']} {...ep} textarea />
                         </div>
                         <div className="ccs-wo-notes-field">
                           <span className="ccs-block-label">Notes</span>
-                          <div className="ccs-textarea-display">{f.Notes || ''}</div>
+                          <EField fieldKey="Notes" value={f.Notes} {...ep} textarea />
                         </div>
                       </div>
 
-                      {/* Footer meta */}
                       <div className="ccs-meta-footer">
                         <span>Modified By <strong>{f.zz__Modified_By}</strong></span>
                         <span>Modified On <strong>{f.zz__Modified_On}</strong></span>
@@ -331,91 +459,71 @@ export default function CCS() {
               {/* ── CHECKLISTS ── */}
               {activeTab === 'checklists' && (
                 <div className="ccs-checklist-grid">
-                  <div className="ccs-card">
-                    <div className="ccs-card-title">Pre-Project</div>
-                    <div className="ccs-card-body ccs-checks">
-                      {[
-                        ['pp_New_cust_exist_course_survey', 'Site Survey'],
-                        ['pp_Created Client Folder', 'Client Folder Created'],
-                        ['pp_Create CCS for Site Eval', 'CCS for Site Eval'],
-                        ['p_CCS Estimate', 'CCS Estimate'],
-                        ['p_Training Plan', 'Training Plan'],
-                        ['p_Drawings', 'Drawings'],
-                        ['p_Mark as Proposed', 'Mark as Proposed'],
-                        ['pp_Sent PD Form', 'Sent PD Form'],
-                      ].map(([key, label]) => (
-                        <div key={key} className={`ccs-check-item ${Number(f[key])===1?'on':'off'}`}>
-                          <span className="ccs-chk-box">{Number(f[key])===1?'✓':''}</span>
-                          <span>{label}</span>
-                        </div>
-                      ))}
+                  {[
+                    ['Pre-Project', [
+                      ['pp_New_cust_exist_course_survey', 'Site Survey'],
+                      ['pp_Created Client Folder', 'Client Folder Created'],
+                      ['pp_Create CCS for Site Eval', 'CCS for Site Eval'],
+                      ['p_CCS Estimate', 'CCS Estimate'],
+                      ['p_Training Plan', 'Training Plan'],
+                      ['p_Drawings', 'Drawings'],
+                      ['p_Mark as Proposed', 'Mark as Proposed'],
+                      ['pp_Sent PD Form', 'Sent PD Form'],
+                    ]],
+                    ['Contract & Deposit', [
+                      ['cd_Sent Contract', 'Sent Contract'],
+                      ['cd_Add to Cal', 'Add to Calendar'],
+                      ['cd_Received Contract', 'Received Contract'],
+                      ['cd_Received Deposit', 'Received Deposit'],
+                      ['cd_Received PO', 'Received PO'],
+                      ['Final_Invoice_Received', 'Final Invoice Received'],
+                    ]],
+                    ['Install Prep', [
+                      ['iprep_Prefab List', 'Prefab List'],
+                      ['iprep_Construction Layout', 'Construction Layout'],
+                      ['iprep_Training', 'Training'],
+                      ['iprep_Equipment', 'Equipment'],
+                      ['iprep_Need Inspection', 'Need Inspection'],
+                    ]],
+                    ['Event Prep', [
+                      ['eprep_Setting Scheduled', 'Setting Scheduled'],
+                      ['eprep_Setting Complete', 'Setting Complete'],
+                      ['eprep_Dig Safe', 'Dig Safe'],
+                      ['eprep_Equipment Requested', 'Equipment Requested'],
+                      ['eprep_Equipment Reserved', 'Equipment Reserved'],
+                      ['eprep_Poles Ordered', 'Poles Ordered'],
+                      ['eprep_Poles Delivered', 'Poles Delivered'],
+                      ['eprep_Climbing Holds Ordered', 'Holds Ordered'],
+                      ['eprep_Climbing Holds Delivered', 'Holds Delivered'],
+                      ['eprep_Tarps Mats Ordered', 'Tarps/Mats Ordered'],
+                      ['eprep_Tarps Mats Delivered', 'Tarps/Mats Delivered'],
+                      ['eprep_Specialty Hardware', 'Specialty Hardware'],
+                      ['eprep_Lumber_ordered', 'Lumber Ordered'],
+                      ['eprep_Lumber_ordered_delivered', 'Lumber Delivered'],
+                      ['eprep_Permits', 'Permits'],
+                    ]],
+                  ].map(([title, items]) => (
+                    <div key={title} className="ccs-card">
+                      <div className="ccs-card-title">{title}</div>
+                      <div className="ccs-card-body ccs-checks">
+                        {items.map(([key, label]) => {
+                          const val = key in edits ? edits[key] : f[key];
+                          const on = Number(val) === 1;
+                          return (
+                            <div
+                              key={key}
+                              className={`ccs-check-item${on ? ' on' : ''}`}
+                              onClick={() => dataEditing && handleFieldChange(key, on ? 0 : 1)}
+                              style={{ cursor: dataEditing ? 'pointer' : 'default' }}
+                            >
+                              <span className={`ccs-chk-box${on ? ' on' : ''}`}>{on ? '✓' : ''}</span>
+                              <span>{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="ccs-card">
-                    <div className="ccs-card-title">Contract & Deposit</div>
-                    <div className="ccs-card-body ccs-checks">
-                      {[
-                        ['cd_Sent Contract', 'Sent Contract'],
-                        ['cd_Add to Cal', 'Add to Calendar'],
-                        ['cd_Received Contract', 'Received Contract'],
-                        ['cd_Received Deposit', 'Received Deposit'],
-                        ['cd_Received PO', 'Received PO'],
-                        ['Final_Invoice_Received', 'Final Invoice Received'],
-                      ].map(([key, label]) => (
-                        <div key={key} className={`ccs-check-item ${Number(f[key])===1?'on':'off'}`}>
-                          <span className="ccs-chk-box">{Number(f[key])===1?'✓':''}</span>
-                          <span>{label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="ccs-card">
-                    <div className="ccs-card-title">Install Prep</div>
-                    <div className="ccs-card-body ccs-checks">
-                      {[
-                        ['iprep_Prefab List', 'Prefab List'],
-                        ['iprep_Construction Layout', 'Construction Layout'],
-                        ['iprep_Training', 'Training'],
-                        ['iprep_Equipment', 'Equipment'],
-                        ['iprep_Need Inspection', 'Need Inspection'],
-                      ].map(([key, label]) => (
-                        <div key={key} className={`ccs-check-item ${Number(f[key])===1?'on':'off'}`}>
-                          <span className="ccs-chk-box">{Number(f[key])===1?'✓':''}</span>
-                          <span>{label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="ccs-card">
-                    <div className="ccs-card-title">Event Prep</div>
-                    <div className="ccs-card-body ccs-checks">
-                      {[
-                        ['eprep_Setting Scheduled', 'Setting Scheduled'],
-                        ['eprep_Setting Complete', 'Setting Complete'],
-                        ['eprep_Dig Safe', 'Dig Safe'],
-                        ['eprep_Equipment Requested', 'Equipment Requested'],
-                        ['eprep_Equipment Reserved', 'Equipment Reserved'],
-                        ['eprep_Poles Ordered', 'Poles Ordered'],
-                        ['eprep_Poles Delivered', 'Poles Delivered'],
-                        ['eprep_Climbing Holds Ordered', 'Holds Ordered'],
-                        ['eprep_Climbing Holds Delivered', 'Holds Delivered'],
-                        ['eprep_Tarps Mats Ordered', 'Tarps/Mats Ordered'],
-                        ['eprep_Tarps Mats Delivered', 'Tarps/Mats Delivered'],
-                        ['eprep_Specialty Hardware', 'Specialty Hardware'],
-                        ['eprep_Lumber_ordered', 'Lumber Ordered'],
-                        ['eprep_Lumber_ordered_delivered', 'Lumber Delivered'],
-                        ['eprep_Permits', 'Permits'],
-                      ].map(([key, label]) => (
-                        <div key={key} className={`ccs-check-item ${Number(f[key])===1?'on':'off'}`}>
-                          <span className="ccs-chk-box">{Number(f[key])===1?'✓':''}</span>
-                          <span>{label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  ))}
 
                   {(f['Job Sheet Poles']||f['Job Sheet Setting']||f['Job Sheet Equipment Rental']||
                     f['Job Sheet Climbing Holds']||f['Job Sheet Mats Tarps']||f['Job Sheet Specialty Hardware']||
@@ -424,16 +532,16 @@ export default function CCS() {
                       <div className="ccs-card-title">Job Sheet</div>
                       <div className="ccs-card-body ccs-job-sheet-grid">
                         {[
-                          ['Poles', 'Job Sheet Poles'], ['Setting', 'Job Sheet Setting'],
-                          ['Equipment Rental', 'Job Sheet Equipment Rental'], ['Climbing Holds', 'Job Sheet Climbing Holds'],
-                          ['Mats / Tarps', 'Job Sheet Mats Tarps'], ['Specialty Hardware', 'Job Sheet Specialty Hardware'],
-                          ['Lumber Order', 'Job Sheet Lumber Order'], ['Permits', 'Job Sheet Permits'],
-                        ].map(([label, key]) => f[key] ? (
+                          ['Poles','Job Sheet Poles'],['Setting','Job Sheet Setting'],
+                          ['Equipment Rental','Job Sheet Equipment Rental'],['Climbing Holds','Job Sheet Climbing Holds'],
+                          ['Mats / Tarps','Job Sheet Mats Tarps'],['Specialty Hardware','Job Sheet Specialty Hardware'],
+                          ['Lumber Order','Job Sheet Lumber Order'],['Permits','Job Sheet Permits'],
+                        ].map(([label, key]) => (
                           <div key={key} className="ccs-proj-field">
                             <span className="ccs-block-label">{label}</span>
-                            <span className="ccs-block-value">{f[key]}</span>
+                            <EField fieldKey={key} value={f[key]} {...ep} />
                           </div>
-                        ) : null)}
+                        ))}
                       </div>
                     </div>
                   )}

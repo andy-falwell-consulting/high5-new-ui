@@ -91,12 +91,42 @@
 /* ── Tabs ── */
 .ccs-tabs {
   display: flex;
-  gap: 2px;
+  align-items: flex-end;
+  justify-content: space-between;
   padding: 12px 20px 0;
   border-bottom: 1px solid #1e2130;
   flex-shrink: 0;
   background: #0a0c12;
 }
+.ccs-tabs-left { display: flex; gap: 2px; }
+.ccs-tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+.ccs-status-msg { font-size: 12px; }
+.ccs-status-msg.saved { color: #22c55e; }
+.ccs-status-msg.error { color: #f87171; }
+.ccs-action-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid #2a2f45;
+  background: #1e2130;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ccs-action-btn:hover:not(:disabled) { background: #252a3d; color: #e2e8f0; }
+.ccs-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ccs-action-btn.save {
+  background: linear-gradient(135deg, #e8322a, #c52020);
+  border-color: transparent;
+  color: #fff;
+}
+.ccs-action-btn.save:hover:not(:disabled) { background: linear-gradient(135deg, #ef4444, #dc2626); }
 .ccs-tab {
   padding: 7px 16px;
   font-size: 12px;
@@ -334,6 +364,59 @@
 .ccs-portal-table tr:last-child td { border-bottom: none; }
 .ccs-portal-table tr:hover td { background: #1a1d28; }
 .ccs-empty-portal { color: #334155; font-size: 13px; margin: 0; }
+
+/* ── Edit inputs ── */
+.ccs-edit-input,
+.ccs-edit-select {
+  background: #1e2130;
+  border: 1px solid #3b4260;
+  border-radius: 5px;
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.ccs-edit-input:focus,
+.ccs-edit-select:focus { border-color: #e8322a; }
+
+.ccs-edit-textarea {
+  background: #1a1d28;
+  border: 1px solid #3b4260;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 10px 12px;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.6;
+  min-height: 120px;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.ccs-edit-textarea:focus { border-color: #e8322a; }
+
+.ccs-edit-check {
+  width: 16px;
+  height: 16px;
+  accent-color: #e8322a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Checklist click-to-toggle in edit mode */
+.ccs-check-item { transition: color 0.1s; }
+.ccs-chk-box { transition: all 0.1s; }
+
+[data-theme="light"] .ccs-action-btn { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
+[data-theme="light"] .ccs-action-btn:hover:not(:disabled) { background: #e2e8f0; color: #0f172a; }
+[data-theme="light"] .ccs-edit-input,
+[data-theme="light"] .ccs-edit-select { background: #fff; border-color: #cbd5e1; color: #0f172a; }
+[data-theme="light"] .ccs-edit-textarea { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
 
 /* ── Light theme ── */
 [data-theme="light"] .ccs-nav { background: #f8fafc; border-right-color: #e2e8f0; }
