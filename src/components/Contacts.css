@@ -310,3 +310,175 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 [data-theme="light"] .ct-ht-value { color: #334155; }
+
+/* Edit mode */
+.ct-topbar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.ct-btn-edit {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ct-btn-edit:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.ct-btn-save {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: none;
+  background: #e87722;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.ct-btn-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ct-btn-save:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.ct-btn-discard {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ct-btn-discard:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.ct-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  color: #e2e8f0;
+  font-size: 13px;
+  padding: 5px 8px;
+  outline: none;
+  font-family: inherit;
+}
+.ct-input:focus {
+  border-color: #e87722;
+  box-shadow: 0 0 0 2px #e8772222;
+}
+.ct-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+/* Layout mode */
+.ct-drag-handle {
+  cursor: grab;
+  color: #475569;
+  font-size: 14px;
+  padding: 0 6px 0 0;
+  user-select: none;
+  flex-shrink: 0;
+}
+.ct-drag-handle:active { cursor: grabbing; }
+
+.ct-field-handle {
+  cursor: grab;
+  color: #475569;
+  font-size: 11px;
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  user-select: none;
+}
+.ct-field-handle:active { cursor: grabbing; }
+
+.ct-field.layout-edit {
+  position: relative;
+  padding-left: 20px;
+  border: 1px dashed #334155;
+  border-radius: 4px;
+}
+
+.ct-dirty-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e87722;
+}
+
+.ct-layout-hint {
+  font-size: 11px;
+  color: #64748b;
+  padding: 6px 20px;
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+}
+
+.ct-status {
+  font-size: 12px;
+  font-weight: 600;
+}
+.ct-status.saved { color: #4ade80; }
+.ct-status.error { color: #f87171; }
+
+.ct-btn-edit.active {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+.ct-btn-edit.sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.ct-empty-portal {
+  color: #64748b;
+  font-size: 12px;
+  padding: 12px 0;
+  font-style: italic;
+}
+
+.ct-section.drag-ghost {
+  border: 1px solid #e87722;
+  border-radius: 8px;
+}
+
+/* ── Light theme additions ───────────────────────────────────── */
+[data-theme="light"] .ct-title { color: #0f172a; }
+[data-theme="light"] .ct-search-icon { color: #94a3b8; }
+[data-theme="light"] .ct-empty-state { color: #94a3b8; }
+[data-theme="light"] .ct-record-footer { color: #e2e8f0; }
+[data-theme="light"] .ct-btn-edit { background: #f1f5f9; border-color: #e2e8f0; color: #64748b; }
+[data-theme="light"] .ct-btn-edit:hover { background: #e2e8f0; color: #0f172a; }
+[data-theme="light"] .ct-btn-edit.active { background: #fff1f0; color: #e8322a; border-color: #fca5a5; }
+[data-theme="light"] .ct-btn-discard { background: #f1f5f9; border-color: #e2e8f0; color: #64748b; }
+[data-theme="light"] .ct-btn-discard:hover { background: #e2e8f0; color: #0f172a; }
+[data-theme="light"] .ct-input,
+[data-theme="light"] .ct-textarea { background: #f8fafc; border-color: #e2e8f0; color: #0f172a; }
+[data-theme="light"] .ct-drag-handle,
+[data-theme="light"] .ct-field-handle { color: #cbd5e1; }
+[data-theme="light"] .ct-layout-hint { background: #fff1f0; border-bottom-color: #fca5a5; color: #94a3b8; }
+[data-theme="light"] .ct-section.drag-ghost { border-color: #e8322a55; }
+[data-theme="light"] .ct-ht-label { color: #94a3b8; }

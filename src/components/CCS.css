@@ -459,3 +459,90 @@
 [data-theme="light"] .ccs-portal-table th { color: #94a3b8; border-bottom-color: #e2e8f0; }
 [data-theme="light"] .ccs-portal-table td { color: #475569; border-bottom-color: #f1f5f9; }
 [data-theme="light"] .ccs-portal-table tr:hover td { background: #f8fafc; }
+
+/* Layout mode */
+.ccs-card-drag-handle {
+  cursor: grab;
+  color: #475569;
+  font-size: 11px;
+  padding: 4px 12px;
+  border-bottom: 1px dashed #1e293b;
+  user-select: none;
+  background: #0f172a;
+  border-radius: 8px 8px 0 0;
+}
+.ccs-card-drag-handle:active { cursor: grabbing; }
+
+.ccs-layout-hint {
+  font-size: 11px;
+  color: #64748b;
+  padding: 6px 16px;
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+}
+
+.ccs-action-btn.active {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+.ccs-action-btn.sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.ccs-card.drag-ghost {
+  border: 1px solid #e87722;
+}
+
+/* Contact section body */
+.ccs-contact-body { padding: 12px 16px; }
+.ccs-info-row { display: flex; gap: 12px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid #0f1117; }
+.ccs-info-row:last-child { border-bottom: none; }
+.ccs-info-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: #334155; width: 70px; flex-shrink: 0; }
+.ccs-info-value { font-size: 13px; color: #cbd5e1; }
+.ccs-info-value.link { color: #60a5fa; text-decoration: none; }
+.ccs-info-value.link:hover { text-decoration: underline; }
+
+/* Financial section */
+.ccs-fin-table { padding: 6px 16px 12px; }
+.ccs-fin-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #0f1117; font-size: 12px; }
+.ccs-fin-row:last-child { border-bottom: none; }
+.ccs-fin-label { width: 90px; flex-shrink: 0; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #334155; }
+.ccs-fin-recv { font-size: 10px; color: #475569; margin-left: auto; margin-right: 4px; }
+
+/* Shared checkbox */
+.ccs-chk-box { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 1px solid #334155; border-radius: 3px; font-size: 11px; color: #22c55e; background: #0f1117; transition: background 0.1s; flex-shrink: 0; }
+.ccs-chk-box.on { background: #22c55e18; border-color: #22c55e44; }
+.ccs-chk-box.clickable { cursor: pointer; }
+.ccs-chk-box.clickable:hover { border-color: #e8322a; }
+
+/* sm input for financial rows */
+.sl-input.sm { padding: 3px 6px; font-size: 12px; }
+.sl-value.sm { font-size: 12px; color: #94a3b8; }
+
+/* ccs-action-btn active/sm */
+.ccs-action-btn.active { background: #1e293b; color: #e2e8f0; }
+.ccs-action-btn.sm { padding: 4px 10px; font-size: 12px; }
+
+/* ── Light theme additions ───────────────────────────────────── */
+[data-theme="light"] .ccs-nav-count { color: #94a3b8; }
+[data-theme="light"] .ccs-list-date { color: #cbd5e1; }
+[data-theme="light"] .ccs-empty { color: #94a3b8; }
+[data-theme="light"] .ccs-tab-body { background: #f1f5f9; }
+[data-theme="light"] .ccs-portal-count { background: #f1f5f9; color: #94a3b8; }
+[data-theme="light"] .ccs-portal-tab.active .ccs-portal-count { background: #e2e8f0; color: #475569; }
+[data-theme="light"] .ccs-action-btn.active { background: #fff1f0; color: #e8322a; border-color: #fca5a5; }
+[data-theme="light"] .ccs-contact-body { background: #ffffff; }
+[data-theme="light"] .ccs-info-row { border-bottom-color: #f1f5f9; }
+[data-theme="light"] .ccs-info-label { color: #94a3b8; }
+[data-theme="light"] .ccs-info-value { color: #334155; }
+[data-theme="light"] .ccs-fin-table { background: #ffffff; }
+[data-theme="light"] .ccs-fin-recv { color: #94a3b8; }
+[data-theme="light"] .ccs-chk-box { background: #f8fafc; border-color: #cbd5e1; color: transparent; }
+[data-theme="light"] .ccs-chk-box.on { background: #f0fdf4; border-color: #86efac; color: #22c55e; }
+[data-theme="light"] .ccs-textarea-display { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+[data-theme="light"] .ccs-card-drag-handle { background: #f8fafc; border-bottom-color: #e2e8f0; color: #94a3b8; }
+[data-theme="light"] .ccs-layout-hint { background: #fff1f0; border-bottom-color: #fca5a5; color: #94a3b8; }
+[data-theme="light"] .ccs-card.drag-ghost { border-color: #e8322a55; }
+[data-theme="light"] .ccs-empty-portal { color: #cbd5e1; }
+[data-theme="light"] .ccs-proj-field .sl-value { color: #334155; }

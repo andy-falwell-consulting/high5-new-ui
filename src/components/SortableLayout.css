@@ -1,0 +1,227 @@
+/* ── Shared sortable layout styles ───────────────────────────── */
+
+.sl-section {
+  background: #13151c;
+  border: 1px solid #1e2130;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.sl-section:hover { border-color: #2a2f45; }
+
+.sl-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid #1e2130;
+  cursor: pointer;
+  user-select: none;
+}
+.sl-section-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+}
+
+.sl-section-icon {
+  font-size: 14px;
+  color: #e8322a;
+  opacity: 0.8;
+  width: 18px;
+  text-align: center;
+}
+
+.sl-chevron {
+  font-size: 10px;
+  color: #475569;
+  margin-left: auto;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.sl-chevron.collapsed { transform: rotate(-90deg); }
+
+/* ── Field grid ──────────────────────────────────────────────── */
+.sl-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1px;
+  background: #1a1d2e;
+}
+
+.sl-field-single {
+  padding: 14px 16px;
+}
+
+.sl-field {
+  padding: 14px 16px;
+  background: #13151c;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: relative;
+  transition: background 0.1s;
+}
+.sl-field.wide { grid-column: 1 / -1; }
+.sl-field:hover { background: #161926; }
+.sl-field.dirty { background: #1a1700; }
+.sl-field.layout-edit { background: #141624; cursor: default; }
+.sl-field.layout-edit:hover { background: #171a28; }
+
+.sl-field label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #334155;
+}
+
+.sl-value {
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+.sl-value.mono { font-family: 'SF Mono', 'Fira Mono', monospace; color: #86efac; }
+
+.sl-dirty-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  background: #fbbf24;
+  border-radius: 50%;
+}
+
+/* ── Inputs ──────────────────────────────────────────────────── */
+.sl-input, .sl-select {
+  background: #0f1117;
+  border: 1px solid #2a2f45;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 13px;
+  padding: 6px 8px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.sl-input:focus, .sl-select:focus {
+  border-color: #e8322a;
+  box-shadow: 0 0 0 2px #e8322a22;
+}
+.sl-input.mono { font-family: 'SF Mono', 'Fira Mono', monospace; color: #86efac; }
+.sl-select:disabled { opacity: 0.7; cursor: default; }
+
+.sl-textarea {
+  background: #0f1117;
+  border: 1px solid #2a2f45;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+  outline: none;
+  box-sizing: border-box;
+}
+.sl-textarea:focus { border-color: #e8322a; box-shadow: 0 0 0 2px #e8322a22; }
+
+.sl-toggle-wrap { display: flex; align-items: center; }
+.sl-toggle {
+  width: 16px;
+  height: 16px;
+  accent-color: #e8322a;
+  cursor: pointer;
+}
+
+.sl-textarea-display {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ── Drag handles ────────────────────────────────────────────── */
+.sl-drag-handle, .sl-field-handle {
+  cursor: grab;
+  color: #334155;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.1s, background 0.1s;
+  user-select: none;
+  flex-shrink: 0;
+}
+.sl-drag-handle:hover, .sl-field-handle:hover { color: #e8322a; background: #e8322a11; }
+.sl-drag-handle:active, .sl-field-handle:active { cursor: grabbing; }
+.sl-field-handle { font-size: 12px; }
+
+/* ── Ghost overlay ───────────────────────────────────────────── */
+.sl-section.drag-ghost {
+  box-shadow: 0 16px 40px #00000088;
+  border-color: #e8322a55;
+}
+
+/* ── Layout hint bar ─────────────────────────────────────────── */
+.sl-layout-hint {
+  font-size: 11px;
+  color: #475569;
+  padding: 6px 20px;
+  background: #0d0f14;
+  border-bottom: 1px solid #1e2130;
+}
+
+/* ── Empty state within a section ───────────────────────────── */
+.sl-empty {
+  padding: 14px 16px;
+  margin: 0;
+  color: #334155;
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* ── Status pill (shared across layouts) ─────────────────────── */
+.sl-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+/* ── Light theme ─────────────────────────────────────────────── */
+[data-theme="light"] .sl-section { background: #ffffff; border-color: #e2e8f0; }
+[data-theme="light"] .sl-section:hover { border-color: #cbd5e1; }
+[data-theme="light"] .sl-section-header { border-bottom-color: #e2e8f0; }
+[data-theme="light"] .sl-section-header h3 { color: #94a3b8; }
+[data-theme="light"] .sl-chevron { color: #94a3b8; }
+[data-theme="light"] .sl-field-grid { background: #f1f5f9; }
+[data-theme="light"] .sl-field { background: #ffffff; }
+[data-theme="light"] .sl-field:hover { background: #f8fafc; }
+[data-theme="light"] .sl-field.dirty { background: #fffbeb; }
+[data-theme="light"] .sl-field.layout-edit { background: #f0f4ff; }
+[data-theme="light"] .sl-field.layout-edit:hover { background: #fff1f0; }
+[data-theme="light"] .sl-field label { color: #94a3b8; }
+[data-theme="light"] .sl-value { color: #334155; }
+[data-theme="light"] .sl-value.mono { color: #059669; }
+[data-theme="light"] .sl-textarea-display { color: #64748b; }
+[data-theme="light"] .sl-input,
+[data-theme="light"] .sl-select { background: #f8fafc; border-color: #e2e8f0; color: #0f172a; }
+[data-theme="light"] .sl-textarea { background: #f8fafc; border-color: #e2e8f0; color: #334155; }
+[data-theme="light"] .sl-drag-handle,
+[data-theme="light"] .sl-field-handle { color: #cbd5e1; }
+[data-theme="light"] .sl-drag-handle:hover,
+[data-theme="light"] .sl-field-handle:hover { color: #e8322a; background: #e8322a11; }
+[data-theme="light"] .sl-layout-hint { background: #fff1f0; border-bottom-color: #fca5a5; color: #94a3b8; }
+[data-theme="light"] .sl-empty { color: #cbd5e1; }
+[data-theme="light"] .sl-section.drag-ghost { border-color: #e8322a55; box-shadow: 0 16px 40px #00000022; }
