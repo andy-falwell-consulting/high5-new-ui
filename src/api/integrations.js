@@ -3,7 +3,7 @@ export async function pushToShopify(f, recordId, existingShopifyId = null) {
   const product = {
     title: f.Name,
     body_html: f.Description || '',
-    status: existingShopifyId ? undefined : 'draft',
+    status: existingShopifyId ? undefined : (f.status || 'draft'),
     variants: [{ price: String(f.Unit_Price || 0), sku: f.SKU || '' }],
   };
 
