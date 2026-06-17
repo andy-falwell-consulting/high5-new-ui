@@ -285,8 +285,8 @@ export default function ProductsAndServicesV2() {
       fieldData: {
         Name: r.fieldData.Name,
         SKU: r.fieldData.SKU,
-        Category: r.fieldData.Category,
-        Vendor: r.fieldData.Vendor,
+        Unit_Price: r.fieldData.Unit_Price,
+        Picture: r.fieldData.Picture,
       },
     }),
   });
