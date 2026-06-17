@@ -13,6 +13,7 @@ import { getCurrentEnv, getCurrentEnvId } from '../config/fmpEnvironments';
 import ColorLegend from './ColorLegend';
 import BomPickerModal from './BomPickerModal';
 import NewItemModal from './NewItemModal';
+import ImageLightbox from './ImageLightbox';
 import { pushToShopify, pushToQBO } from '../api/integrations';
 import { useAllRecords } from '../hooks/useAllRecords';
 import './ProductsAndServicesV2.css';
@@ -303,6 +304,7 @@ export default function ProductsAndServicesV2() {
   const [navWidth, setNavWidth] = useState(300);
   const [showNewItem, setShowNewItem] = useState(false);
   const [syncStatus, setSyncStatus] = useState({});
+  const [showLightbox, setShowLightbox] = useState(false);
   const isResizing = useRef(false);
 
   const startResize = useCallback((e) => {
@@ -467,6 +469,7 @@ export default function ProductsAndServicesV2() {
   const portalData = selected?.portalData;
   const catColor = CATEGORY_COLORS[f.Category] || '#64748b';
   const dirtyCount = Object.keys(edits).length;
+  const imgSrc = f.Picture ? containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected?.recordId }) : null;
 
   return (
     <div className="v2-container">
@@ -544,7 +547,7 @@ export default function ProductsAndServicesV2() {
             {/* Top bar */}
             <div className="v2-topbar">
               <div className="v2-topbar-left">
-                {f.Picture && <img className="v2-hero-img" src={containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected.recordId })} alt={f.Name} />}
+                {imgSrc && <img className="v2-hero-img" src={imgSrc} alt={f.Name} onClick={() => setShowLightbox(true)} style={{ cursor: 'zoom-in' }} />}
                 <div>
                   <h1 className="v2-title">{f.Name}</h1>
                   <div className="v2-meta-row">
@@ -647,6 +650,14 @@ export default function ProductsAndServicesV2() {
         <NewItemModal
           onClose={() => setShowNewItem(false)}
           onCreate={handleCreate}
+        />
+      )}
+
+      {showLightbox && imgSrc && (
+        <ImageLightbox
+          src={imgSrc}
+          name={f.Name}
+          onClose={() => setShowLightbox(false)}
         />
       )}
     </div>
