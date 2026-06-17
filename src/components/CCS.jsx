@@ -265,6 +265,7 @@ function PortalTable({ columns, rows }) {
 
 export default function CCS() {
   const { records, total } = useAllRecords(LAYOUT, {
+    cacheVersion: 2,
     slimForStorage: r => ({
       recordId: r.recordId,
       fieldData: {
@@ -274,12 +275,16 @@ export default function CCS() {
         'Type of Project': r.fieldData['Type of Project'],
         'rcd start date': r.fieldData['rcd start date'],
         'Work Order': r.fieldData['Work Order'],
+        zz__Created_On: r.fieldData.zz__Created_On,
+        zz__Modified_On: r.fieldData.zz__Modified_On,
       },
     }),
   });
 
   const [selected, setSelected]         = useState(null);
   const [search, setSearch]             = useState('');
+  const [sortField, setSortFieldRaw]    = useState(() => localStorage.getItem('ccs_sort_field') || 'created');
+  const [sortOrder, setSortOrderRaw]    = useState(() => localStorage.getItem('ccs_sort_order') || 'desc');
   const [navWidth, setNavWidth]         = useState(300);
   const [activeTab, setActiveTab]       = useState('primary');
   const [activePortal, setActivePortal] = useState('estimates');
@@ -317,6 +322,16 @@ export default function CCS() {
     window.addEventListener('mouseup', onUp);
   }, [navWidth]);
 
+  const setSortField = v => { setSortFieldRaw(v); localStorage.setItem('ccs_sort_field', v); };
+  const setSortOrder = v => { setSortOrderRaw(v); localStorage.setItem('ccs_sort_order', v); };
+
+  const parseFmDate = v => {
+    if (!v) return 0;
+    const [date, time = '00:00:00'] = v.split(' ');
+    const [m, d, y] = date.split('/');
+    return new Date(`${y}-${m}-${d}T${time}`).getTime();
+  };
+
   const filtered = records.filter(r => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -328,6 +343,23 @@ export default function CCS() {
       f['Type of Project']?.toLowerCase().includes(q) ||
       f['Work Order']?.toLowerCase().includes(q)
     );
+  });
+
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    let va, vb;
+    if (sortField === 'alpha') {
+      va = (a.fieldData.zz__Display_Organization__ct || '').toLowerCase();
+      vb = (b.fieldData.zz__Display_Organization__ct || '').toLowerCase();
+    } else if (sortField === 'created') {
+      va = parseFmDate(a.fieldData.zz__Created_On);
+      vb = parseFmDate(b.fieldData.zz__Created_On);
+    } else {
+      va = parseFmDate(a.fieldData.zz__Modified_On);
+      vb = parseFmDate(b.fieldData.zz__Modified_On);
+    }
+    if (va < vb) return sortOrder === 'asc' ? -1 : 1;
+    if (va > vb) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
   });
 
   async function handleSelect(r) {
@@ -376,8 +408,18 @@ export default function CCS() {
         <div className="ccs-search-wrap">
           <input className="ccs-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        <div className="sort-bar">
+          <select className="sort-field" value={sortField} onChange={e => setSortField(e.target.value)}>
+            <option value="alpha">A–Z</option>
+            <option value="created">Created</option>
+            <option value="modified">Modified</option>
+          </select>
+          <button className="sort-order-btn" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+            {sortOrder === 'asc' ? '↑' : '↓'}
+          </button>
+        </div>
         <div className="ccs-list">
-          {filtered.map(r => {
+          {sortedFiltered.map(r => {
             const rf = r.fieldData;
             const sc = statusColor(rf.Status);
             return (

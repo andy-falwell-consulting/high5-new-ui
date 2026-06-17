@@ -143,6 +143,8 @@ export default function Contacts() {
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
+  const [sortField, setSortFieldRaw] = useState(() => localStorage.getItem('ct_sort_field') || 'created');
+  const [sortOrder, setSortOrderRaw] = useState(() => localStorage.getItem('ct_sort_order') || 'desc');
   const [navWidth, setNavWidth] = useState(280);
   const [tooltip, setTooltip] = useState(null);
   const [dataEditing, setDataEditing] = useState(false);
@@ -158,6 +160,7 @@ export default function Contacts() {
     getAllRecords(LAYOUT, {
       onProgress: ({ records, total }) => { setRecords(records); setTotal(total); },
       batchSize: 100,
+      cacheVersion: 2,
       slimForStorage: r => ({
         recordId: r.recordId,
         fieldData: {
@@ -168,10 +171,22 @@ export default function Contacts() {
           Status: r.fieldData.Status,
           Name_Organization: r.fieldData.Name_Organization,
           'cntct_ADDR::Type': r.fieldData['cntct_ADDR::Type'],
+          zz__Created_On: r.fieldData.zz__Created_On,
+          zz__Modified_On: r.fieldData.zz__Modified_On,
         },
       }),
     });
   }, []);
+
+  const setSortField = v => { setSortFieldRaw(v); localStorage.setItem('ct_sort_field', v); };
+  const setSortOrder = v => { setSortOrderRaw(v); localStorage.setItem('ct_sort_order', v); };
+
+  const parseFmDate = v => {
+    if (!v) return 0;
+    const [date, time = '00:00:00'] = v.split(' ');
+    const [m, d, y] = date.split('/');
+    return new Date(`${y}-${m}-${d}T${time}`).getTime();
+  };
 
   const filtered = records.filter(r => {
     if (!search) return true;
@@ -183,6 +198,23 @@ export default function Contacts() {
       f.Type?.toLowerCase().includes(q) ||
       f.Status?.toLowerCase().includes(q)
     );
+  });
+
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    let va, vb;
+    if (sortField === 'alpha') {
+      va = (a.fieldData.zz__Display__ct || '').toLowerCase();
+      vb = (b.fieldData.zz__Display__ct || '').toLowerCase();
+    } else if (sortField === 'created') {
+      va = parseFmDate(a.fieldData.zz__Created_On);
+      vb = parseFmDate(b.fieldData.zz__Created_On);
+    } else {
+      va = parseFmDate(a.fieldData.zz__Modified_On);
+      vb = parseFmDate(b.fieldData.zz__Modified_On);
+    }
+    if (va < vb) return sortOrder === 'asc' ? -1 : 1;
+    if (va > vb) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
   });
 
   async function handleSelect(r) {
@@ -254,13 +286,23 @@ export default function Contacts() {
             </div>
             <ColorLegend items={Object.entries(STATUS_COLOR).filter(([k]) => k !== 'default').map(([label, color]) => ({ label, color }))} />
           </div>
+          <div className="sort-bar">
+            <select className="sort-field" value={sortField} onChange={e => setSortField(e.target.value)}>
+              <option value="alpha">A–Z</option>
+              <option value="created">Created</option>
+              <option value="modified">Modified</option>
+            </select>
+            <button className="sort-order-btn" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+              {sortOrder === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
         </div>
 
         {records.length === 0 ? (
           <div className="ct-loading">{[...Array(8)].map((_, i) => <div key={i} className="ct-skeleton" />)}</div>
         ) : (
           <ul className="ct-list">
-            {filtered.map(r => {
+            {sortedFiltered.map(r => {
               const status = r.fieldData.Status;
               const color = STATUS_COLOR[status] || STATUS_COLOR.default;
               return (

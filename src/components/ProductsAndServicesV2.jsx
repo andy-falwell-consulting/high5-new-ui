@@ -12,7 +12,7 @@ import { useAllRecords } from '../hooks/useAllRecords';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './ProductsAndServicesV2.css';
 
-const LAYOUT = 'Products & Services_New';
+const LAYOUT = 'Products & Services_app';
 
 const CATEGORIES = ['Catalog','Hardware','Typical Component','Tool','Labor','Lumber','Low Element','High Element','Repair','Training'];
 const TYPES = ['Product','Service'];
@@ -215,6 +215,7 @@ const AUTO_SYNC_FIELDS = new Set(['Name', 'Unit_Price', 'Description', 'SKU']);
 
 export default function ProductsAndServicesV2() {
   const { records, total, loading, error } = useAllRecords(LAYOUT, {
+    cacheVersion: 4,
     slimForStorage: r => ({
       recordId: r.recordId,
       fieldData: {
@@ -222,11 +223,22 @@ export default function ProductsAndServicesV2() {
         SKU: r.fieldData.SKU,
         Unit_Price: r.fieldData.Unit_Price,
         Picture: r.fieldData.Picture,
+        Vendor: r.fieldData.Vendor,
+        Type: r.fieldData.Type,
+        Category: r.fieldData.Category,
+        zz__Created_On: r.fieldData.zz__Created_On,
+        zz__Modified_On: r.fieldData.zz__Modified_On,
       },
     }),
   });
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
+  const [sortField, setSortFieldRaw] = useState(() => localStorage.getItem('ps_sort_field') || 'created');
+  const [sortOrder, setSortOrderRaw] = useState(() => localStorage.getItem('ps_sort_order') || 'asc');
+  const [filterVendor, setFilterVendor] = useState('');
+  const [filterType, setFilterType]     = useState('');
+  const [filterCategory, setFilterCat]  = useState('');
+  const [showFilters, setShowFilters]   = useState(false);
   const [dataEditing, setDataEditing] = useState(false);
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
@@ -266,10 +278,43 @@ export default function ProductsAndServicesV2() {
     window.addEventListener('mouseup', onUp);
   }, [navWidth]);
 
+  const setSortField = v => { setSortFieldRaw(v); localStorage.setItem('ps_sort_field', v); };
+  const setSortOrder = v => { setSortOrderRaw(v); localStorage.setItem('ps_sort_order', v); };
+
+  const parseFmDate = v => {
+    if (!v) return 0;
+    const [date, time = '00:00:00'] = v.split(' ');
+    const [m, d, y] = date.split('/');
+    return new Date(`${y}-${m}-${d}T${time}`).getTime();
+  };
+
   const filtered = records.filter(r => {
     const q = search.toLowerCase();
     const f = r.fieldData;
-    return !q || f.Name?.toLowerCase().includes(q) || f.SKU?.toLowerCase().includes(q);
+    if (q && !f.Name?.toLowerCase().includes(q) && !f.SKU?.toLowerCase().includes(q)) return false;
+    if (filterVendor && f.Vendor !== filterVendor) return false;
+    if (filterType && f.Type !== filterType) return false;
+    if (filterCategory && f.Category !== filterCategory) return false;
+    return true;
+  });
+
+  const activeFilterCount = [filterVendor, filterType, filterCategory].filter(Boolean).length;
+
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    let va, vb;
+    if (sortField === 'alpha') {
+      va = (a.fieldData.Name || '').toLowerCase();
+      vb = (b.fieldData.Name || '').toLowerCase();
+    } else if (sortField === 'created') {
+      va = parseFmDate(a.fieldData.zz__Created_On);
+      vb = parseFmDate(b.fieldData.zz__Created_On);
+    } else {
+      va = parseFmDate(a.fieldData.zz__Modified_On);
+      vb = parseFmDate(b.fieldData.zz__Modified_On);
+    }
+    if (va < vb) return sortOrder === 'asc' ? -1 : 1;
+    if (va > vb) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
   });
 
   async function handleSelect(r) {
@@ -416,6 +461,51 @@ export default function ProductsAndServicesV2() {
             </div>
             <ColorLegend items={Object.entries(CATEGORY_COLORS).map(([label, color]) => ({ label, color }))} />
           </div>
+          <div className="sort-bar">
+            <select className="sort-field" value={sortField} onChange={e => setSortField(e.target.value)}>
+              <option value="alpha">A–Z</option>
+              <option value="created">Created</option>
+              <option value="modified">Modified</option>
+            </select>
+            <button className="sort-order-btn" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+              {sortOrder === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
+          <button className="v2-filter-toggle" onClick={() => setShowFilters(s => !s)}>
+            <span>Filters</span>
+            {activeFilterCount > 0 && <span className="v2-filter-badge">{activeFilterCount}</span>}
+            <span className="v2-filter-chevron">{showFilters ? '▴' : '▾'}</span>
+          </button>
+          {showFilters && (
+            <div className="v2-filter-panel">
+              <div className="v2-filter-row">
+                <label className="v2-filter-label">Vendor</label>
+                <select className="v2-filter-select" value={filterVendor} onChange={e => setFilterVendor(e.target.value)}>
+                  <option value="">All</option>
+                  {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="v2-filter-row">
+                <label className="v2-filter-label">Type</label>
+                <select className="v2-filter-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                  <option value="">All</option>
+                  {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="v2-filter-row">
+                <label className="v2-filter-label">Category</label>
+                <select className="v2-filter-select" value={filterCategory} onChange={e => setFilterCat(e.target.value)}>
+                  <option value="">All</option>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              {activeFilterCount > 0 && (
+                <button className="v2-filter-clear" onClick={() => { setFilterVendor(''); setFilterType(''); setFilterCat(''); }}>
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {error ? (
@@ -424,7 +514,7 @@ export default function ProductsAndServicesV2() {
           <div className="v2-loading">{[...Array(8)].map((_, i) => <div key={i} className="v2-skeleton" />)}</div>
         ) : (
           <ul className="v2-list">
-            {filtered.map(r => {
+            {sortedFiltered.map(r => {
               const color = CATEGORY_COLORS[r.fieldData.Category] || '#64748b';
               return (
                 <li key={r.recordId}

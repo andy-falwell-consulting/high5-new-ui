@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
     define: { __APP_VERSION__: JSON.stringify(version) },
     plugins: [react()],
     server: {
+      port: process.env.PORT ? parseInt(process.env.PORT) : undefined,
       proxy: {
         '/fmi': { target: fmpHost, changeOrigin: true, secure: true },
         '/Streaming_SSL': { target: fmpHost, changeOrigin: true, secure: true },

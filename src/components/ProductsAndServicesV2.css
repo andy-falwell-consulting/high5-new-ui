@@ -660,3 +660,94 @@
   border-color: #e8322a;
   border-style: solid;
 }
+
+/* ── Filter panel ────────────────────────────────────────────── */
+.v2-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid #1e2130;
+  padding: 7px 16px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+.v2-filter-toggle:hover { color: #94a3b8; }
+
+.v2-filter-chevron { margin-left: auto; font-size: 9px; }
+
+.v2-filter-badge {
+  background: #e8322a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
+.v2-filter-panel {
+  padding: 6px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid #1e2130;
+}
+
+.v2-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v2-filter-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+  width: 52px;
+  flex-shrink: 0;
+}
+
+.v2-filter-select {
+  flex: 1;
+  background: #1e2130;
+  border: 1px solid #2a2f45;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 11px;
+  padding: 4px 6px;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.v2-filter-select:focus { border-color: #e8322a; }
+
+.v2-filter-clear {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: #e8322a;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  font-family: inherit;
+  opacity: 0.8;
+}
+.v2-filter-clear:hover { opacity: 1; text-decoration: underline; }
+
+/* Light mode */
+[data-theme="light"] .v2-filter-toggle { border-top-color: #e2e8f0; color: #94a3b8; }
+[data-theme="light"] .v2-filter-toggle:hover { color: #64748b; }
+[data-theme="light"] .v2-filter-panel { border-bottom-color: #e2e8f0; }
+[data-theme="light"] .v2-filter-label { color: #94a3b8; }
+[data-theme="light"] .v2-filter-select { background: #f1f5f9; border-color: #e2e8f0; color: #334155; }

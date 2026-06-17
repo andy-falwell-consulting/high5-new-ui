@@ -65,38 +65,45 @@ const MEM_TTL_MS = 5 * 60 * 1000;
 const LS_TTL_MS = 24 * 60 * 60 * 1000;
 const memCache = {};
 
-function lsKey(layout) { return `fmp_cache__${layout}`; }
+function lsKey(layout, cacheVersion) {
+  return cacheVersion ? `fmp_cache__${layout}__v${cacheVersion}` : `fmp_cache__${layout}`;
+}
+function memKey(layout, cacheVersion) {
+  return cacheVersion ? `${layout}__v${cacheVersion}` : layout;
+}
 
-function readCache(layout) {
+function readCache(layout, cacheVersion) {
+  const mk = memKey(layout, cacheVersion);
   // 1. Check in-memory cache first
-  const mem = memCache[layout];
+  const mem = memCache[mk];
   if (mem) {
     if (Date.now() - mem.ts < MEM_TTL_MS) return { records: mem.records, total: mem.total, fresh: true, complete: mem.complete };
-    delete memCache[layout];
+    delete memCache[mk];
   }
   // 2. Fall back to localStorage
   try {
-    const raw = localStorage.getItem(lsKey(layout));
+    const raw = localStorage.getItem(lsKey(layout, cacheVersion));
     if (raw) {
       const entry = JSON.parse(raw);
       if (Date.now() - entry.ts < LS_TTL_MS) return { records: entry.records, total: entry.total, fresh: false, complete: entry.complete ?? true };
-      localStorage.removeItem(lsKey(layout));
+      localStorage.removeItem(lsKey(layout, cacheVersion));
     }
   } catch { /* storage unavailable */ }
   return null;
 }
 
-function writeCache(layout, records, total, complete = true, storageRecords = null) {
+function writeCache(layout, records, total, complete = true, storageRecords = null, cacheVersion) {
+  const mk = memKey(layout, cacheVersion);
   const ts = Date.now();
-  if (complete) memCache[layout] = { ts, records, total, complete };
+  if (complete) memCache[mk] = { ts, records, total, complete };
   // Write slim records to localStorage (caller may pass a smaller subset to stay within quota)
   const lsRecords = storageRecords ?? records;
-  try { localStorage.setItem(lsKey(layout), JSON.stringify({ ts, records: lsRecords, total, complete })); } catch { /* quota exceeded */ }
+  try { localStorage.setItem(lsKey(layout, cacheVersion), JSON.stringify({ ts, records: lsRecords, total, complete })); } catch { /* quota exceeded */ }
 }
 
-export function bustCache(layout) {
-  delete memCache[layout];
-  try { localStorage.removeItem(lsKey(layout)); } catch { /* ignore */ }
+export function bustCache(layout, cacheVersion) {
+  delete memCache[memKey(layout, cacheVersion)];
+  try { localStorage.removeItem(lsKey(layout, cacheVersion)); } catch { /* ignore */ }
 }
 
 // Build an image URL for a container field.
@@ -115,7 +122,7 @@ export function containerImageUrl(streamingUrl, { db, layout, recordId, field = 
 
 const CHECKPOINT_EVERY = 10; // batches between localStorage checkpoints during initial fetch
 
-async function fetchAllFromServer(layout, { onProgress, batchSize, slimForStorage }) {
+async function fetchAllFromServer(layout, { onProgress, batchSize, slimForStorage, cacheVersion }) {
   const controller = new AbortController();
   let all = [];
   let total = null;
@@ -133,35 +140,32 @@ async function fetchAllFromServer(layout, { onProgress, batchSize, slimForStorag
     // Checkpoint partial progress to localStorage so a refresh can serve stale data immediately
     if (batchCount % CHECKPOINT_EVERY === 0 && !done) {
       const slim = slimForStorage ? all.map(slimForStorage) : null;
-      writeCache(layout, all, total, false, slim);
+      writeCache(layout, all, total, false, slim, cacheVersion);
     }
     if (done) break;
     offset += batchSize;
   }
 
   const slim = slimForStorage ? all.map(slimForStorage) : null;
-  writeCache(layout, all, total, true, slim);
+  writeCache(layout, all, total, true, slim, cacheVersion);
   return { records: all, total };
 }
 
-export async function getAllRecords(layout, { onProgress, batchSize = 100, slimForStorage } = {}) {
-  const cached = readCache(layout);
+export async function getAllRecords(layout, { onProgress, batchSize = 100, slimForStorage, cacheVersion } = {}) {
+  const cached = readCache(layout, cacheVersion);
 
   if (cached?.fresh && cached?.complete) {
-    // In-memory hit, fully loaded — serve immediately
     if (onProgress) onProgress({ records: cached.records, total: cached.total, done: true });
     return cached;
   }
 
   if (cached) {
-    // Stale or incomplete cache — serve immediately so UI is instant, refresh silently
     if (onProgress) onProgress({ records: cached.records, total: cached.total, done: true });
-    fetchAllFromServer(layout, { batchSize, slimForStorage }).catch(() => {});
+    fetchAllFromServer(layout, { batchSize, slimForStorage, cacheVersion }).catch(() => {});
     return cached;
   }
 
-  // No cache — fetch normally with progressive updates
-  return fetchAllFromServer(layout, { onProgress, batchSize, slimForStorage });
+  return fetchAllFromServer(layout, { onProgress, batchSize, slimForStorage, cacheVersion });
 }
 
 const detailCache = new Map();
