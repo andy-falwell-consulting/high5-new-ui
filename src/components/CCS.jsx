@@ -265,7 +265,7 @@ function PortalTable({ columns, rows }) {
 
 export default function CCS() {
   const { records, total } = useAllRecords(LAYOUT, {
-    cacheVersion: 2,
+    cacheVersion: 3,
     slimForStorage: r => ({
       recordId: r.recordId,
       fieldData: {

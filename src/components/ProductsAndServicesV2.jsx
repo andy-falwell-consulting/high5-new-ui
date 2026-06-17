@@ -12,7 +12,7 @@ import { useAllRecords } from '../hooks/useAllRecords';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './ProductsAndServicesV2.css';
 
-const LAYOUT = 'Products & Services_app';
+const LAYOUT = 'Products & Services_New';
 
 const CATEGORIES = ['Catalog','Hardware','Typical Component','Tool','Labor','Lumber','Low Element','High Element','Repair','Training'];
 const TYPES = ['Product','Service'];
