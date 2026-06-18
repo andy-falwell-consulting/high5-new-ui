@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
-import { getAllRecords } from '../api/filemaker';
+import { getAllRecords, readCache } from '../api/filemaker';
 
 export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery, refreshKey } = {}) {
-  const [state, setState] = useState({ records: [], total: 0, loading: true, error: null });
+  const [state, setState] = useState(() => {
+    const cached = readCache(layout, cacheVersion);
+    if (cached) return { records: cached.records, total: cached.total, loading: false, error: null };
+    return { records: [], total: 0, loading: true, error: null };
+  });
 
   useEffect(() => {
     let cancelled = false;
-    setState({ records: [], total: 0, loading: true });
+    const hasCachedData = state.records.length > 0;
+    if (!hasCachedData) setState({ records: [], total: 0, loading: true, error: null });
 
     getAllRecords(layout, {
       onProgress: ({ records, total }) => {

@@ -72,7 +72,7 @@ function memKey(layout, cacheVersion) {
   return cacheVersion ? `${layout}__v${cacheVersion}` : layout;
 }
 
-function readCache(layout, cacheVersion) {
+export function readCache(layout, cacheVersion) {
   const mk = memKey(layout, cacheVersion);
   // 1. Check in-memory cache first
   const mem = memCache[mk];
