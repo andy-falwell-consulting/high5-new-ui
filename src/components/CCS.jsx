@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAllRecords } from '../hooks/useAllRecords';
@@ -382,6 +382,14 @@ export default function CCS() {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
     }).catch(() => {});
   }
+
+  // When a cache patch arrives (e.g. kanban drag-drop), merge it into the open record
+  useEffect(() => {
+    if (!selected) return;
+    const updated = records.find(r => String(r.recordId) === String(selected.recordId));
+    if (!updated) return;
+    setSelected(prev => prev ? { ...prev, fieldData: { ...prev.fieldData, ...updated.fieldData } } : prev);
+  }, [records]);
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
   const handleCheckToggle = useCallback((key, on) => handleFieldChange(key, on ? 0 : 1), [handleFieldChange]);
