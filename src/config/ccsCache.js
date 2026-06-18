@@ -1,6 +1,6 @@
 // Shared cache config for RCD_app — used by CCS, CCSKanban, and App prefetch
 export const RCD_LAYOUT = 'RCD_app'
-export const RCD_CACHE_VERSION = 7
+export const RCD_CACHE_VERSION = 8
 
 export const rcdTwoYearsAgo = () => {
   const d = new Date()

@@ -164,12 +164,13 @@ export function containerImageUrl(streamingUrl, { db, layout, recordId, field = 
 async function findRecords(layout, query, limit, offset, signal) {
   const token = await getToken();
   const env = getCurrentEnv();
+  const body = { query, limit, offset };
   const res = await fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/_find`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, limit, offset }),
+      body: JSON.stringify(body),
       signal,
     }
   );
@@ -180,34 +181,44 @@ async function findRecords(layout, query, limit, offset, signal) {
   return res.json();
 }
 
-const CHECKPOINT_EVERY = 10; // batches between localStorage checkpoints during initial fetch
+const PARALLEL_BATCHES = 6;
 
 async function fetchAllFromServer(layout, { onProgress, batchSize, slimForStorage, cacheVersion, findQuery }) {
-  const controller = new AbortController();
-  let all = [];
-  let total = null;
-  let offset = 1;
-  let batchCount = 0;
+  const signal = new AbortController().signal;
 
-  while (true) {
-    const data = findQuery
-      ? await findRecords(layout, findQuery, batchSize, offset, controller.signal)
-      : await getRecords(layout, batchSize, offset, controller.signal);
-    const batch = data.response?.data || [];
-    if (total === null) total = data.response?.dataInfo?.foundCount ?? data.response?.dataInfo?.totalRecordCount ?? 0;
-    all = all.concat(batch);
-    batchCount++;
-    const done = all.length >= total || batch.length === 0;
-    if (onProgress) onProgress({ records: all, total, done });
-    // Checkpoint partial progress to localStorage so a refresh can serve stale data immediately
-    if (batchCount % CHECKPOINT_EVERY === 0 && !done) {
-      const slim = slimForStorage ? all.map(slimForStorage) : null;
-      writeCache(layout, all, total, false, slim, cacheVersion);
-    }
-    if (done) break;
-    offset += batchSize;
+  // First batch: get records + total count
+  const first = findQuery
+    ? await findRecords(layout, findQuery, batchSize, 1, signal)
+    : await getRecords(layout, batchSize, 1, signal);
+  const firstBatch = first.response?.data || [];
+  const total = first.response?.dataInfo?.foundCount ?? first.response?.dataInfo?.totalRecordCount ?? 0;
+
+  if (onProgress) onProgress({ records: firstBatch, total, done: firstBatch.length >= total });
+  if (firstBatch.length >= total) {
+    const slim = slimForStorage ? firstBatch.map(slimForStorage) : null;
+    writeCache(layout, firstBatch, total, true, slim, cacheVersion);
+    return { records: firstBatch, total };
   }
 
+  // Build remaining offsets and fetch in parallel
+  const offsets = [];
+  for (let off = 1 + batchSize; off <= total; off += batchSize) offsets.push(off);
+
+  const all = [...firstBatch];
+  const tasks = offsets.map(offset => () => {
+    const fetch = findQuery
+      ? findRecords(layout, findQuery, batchSize, offset, signal)
+      : getRecords(layout, batchSize, offset, signal);
+    return fetch.then(data => {
+      const batch = data.response?.data || [];
+      all.push(...batch);
+      if (onProgress) onProgress({ records: [...all], total, done: false });
+    });
+  });
+
+  await pLimit(PARALLEL_BATCHES, tasks);
+
+  if (onProgress) onProgress({ records: all, total, done: true });
   const slim = slimForStorage ? all.map(slimForStorage) : null;
   writeCache(layout, all, total, true, slim, cacheVersion);
   return { records: all, total };
