@@ -265,11 +265,13 @@ export default function CCSKanban() {
     refreshKey,
   })
 
-  // Stale-while-refreshing: only swap display records when a fetch completes
-  const [displayRecords, setDisplayRecords] = useState([])
-  useEffect(() => {
-    if (!fetching && records.length > 0) setDisplayRecords(records)
-  }, [fetching, records])
+  // Stale-while-refreshing: show last complete fetch while a new one is in flight.
+  // lastCompleteRef seeds from the cache-hydrated `records` so there is zero flash on load.
+  const lastCompleteRef = useRef(records)
+  if (!fetching) lastCompleteRef.current = records
+  const displayRecords = fetching && lastCompleteRef.current.length > 0
+    ? lastCompleteRef.current
+    : records
 
   const [localStatus, setLocalStatus] = useState({})
   const [saving, setSaving] = useState({})
