@@ -24,6 +24,7 @@ export default function App() {
   const [activeModule, setActiveModule] = useState('contacts')
   const [visited, setVisited] = useState(() => new Set(['contacts']))
   const [theme, setTheme] = useState(getInitialTheme)
+  const [navTarget, setNavTarget] = useState(null)
 
   // Pre-warm the RCD cache on startup so CCS and CCS Kanban load instantly
   useEffect(() => {
@@ -39,6 +40,15 @@ export default function App() {
     setVisited(v => { const n = new Set(v); n.add(id); return n })
   }
 
+  function navigateTo(moduleId, recordId) {
+    setNavTarget({ moduleId, recordId })
+    handleSelect(moduleId)
+  }
+
+  function clearNavTarget() {
+    setNavTarget(null)
+  }
+
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
@@ -52,8 +62,8 @@ export default function App() {
         <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} />
         {visited.has('contacts') && <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts /></div>}
         {visited.has('products') && <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 /></div>}
-        {visited.has('ccs') && <div style={{ display: activeModule === 'ccs' ? 'contents' : 'none' }}><CCS /></div>}
-        {visited.has('ccs-kanban') && <div style={{ display: activeModule === 'ccs-kanban' ? 'contents' : 'none' }}><CCSKanban /></div>}
+        {visited.has('ccs') && <div style={{ display: activeModule === 'ccs' ? 'contents' : 'none' }}><CCS navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
+        {visited.has('ccs-kanban') && <div style={{ display: activeModule === 'ccs-kanban' ? 'contents' : 'none' }}><CCSKanban navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
       </div>
     </div>
   )

@@ -285,7 +285,7 @@ function PortalTable({ columns, rows }) {
   );
 }
 
-export default function CCS() {
+export default function CCS({ navTarget, onNavigateTo, onClearNav }) {
   const { records, total } = useAllRecords(LAYOUT, {
     cacheVersion: RCD_CACHE_VERSION,
     findQuery: RCD_FIND_QUERY,
@@ -377,7 +377,6 @@ export default function CCS() {
     setEdits({}); setDataEditing(false); setSaveStatus(null);
     primary.setEditMode(false); checklists.setEditMode(false);
     setSelected(r); setActiveTab('primary');
-    invalidateRecord(LAYOUT, r.recordId);
     getRecord(LAYOUT, r.recordId).then(detail => {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
     }).catch(() => {});
@@ -390,6 +389,13 @@ export default function CCS() {
     if (!updated) return;
     setSelected(prev => prev ? { ...prev, fieldData: { ...prev.fieldData, ...updated.fieldData } } : prev);
   }, [records]);
+
+  // Handle cross-module navigation: kanban → CCS
+  useEffect(() => {
+    if (navTarget?.moduleId !== 'ccs' || !navTarget.recordId) return;
+    const record = records.find(r => String(r.recordId) === String(navTarget.recordId));
+    if (record) { handleSelect(record); onClearNav?.(); }
+  }, [navTarget, records]);
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
   const handleCheckToggle = useCallback((key, on) => handleFieldChange(key, on ? 0 : 1), [handleFieldChange]);
@@ -404,6 +410,7 @@ export default function CCS() {
       if (res.messages?.[0]?.code === '0') {
         setSelected(p => ({ ...p, fieldData: { ...p.fieldData, ...edits } }));
         patchCachedRecord(RCD_LAYOUT, RCD_CACHE_VERSION, selected.recordId, edits);
+        invalidateRecord(LAYOUT, selected.recordId);
         setEdits({}); setDataEditing(false); setSaveStatus('saved');
         setTimeout(() => setSaveStatus(null), 3000);
       } else { setSaveStatus('error'); }
@@ -482,6 +489,9 @@ export default function CCS() {
               <div className="ccs-tabs-actions">
                 {saveStatus === 'saved' && <span className="ccs-status-msg saved">✓ Saved</span>}
                 {saveStatus === 'error' && <span className="ccs-status-msg error">✗ Failed</span>}
+                {selected?.fieldData?.kanban_status && !dataEditing && (
+                  <button className="ccs-action-btn" onClick={() => onNavigateTo?.('ccs-kanban', selected.recordId)}>View on Board ⊞</button>
+                )}
                 {!dataEditing ? (
                   <>
                     <button className="ccs-action-btn" onClick={() => { setDataEditing(true); primary.setEditMode(false); checklists.setEditMode(false); }}>✎ Edit</button>

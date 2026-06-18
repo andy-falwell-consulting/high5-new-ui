@@ -389,6 +389,26 @@
   background: #1e2130;
 }
 
+.kb-detail-nav-btn {
+  position: absolute;
+  top: 16px;
+  right: 52px;
+  padding: 4px 10px;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.kb-detail-nav-btn:hover {
+  background: #1e2130;
+  color: #cbd5e1;
+}
+[data-theme="light"] .kb-detail-nav-btn { border-color: #cbd5e1; color: #64748b; }
+[data-theme="light"] .kb-detail-nav-btn:hover { background: #f1f5f9; color: #475569; }
+
 .kb-detail-org {
   font-size: 18px;
   font-weight: 700;

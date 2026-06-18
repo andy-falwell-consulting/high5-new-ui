@@ -96,7 +96,7 @@ function DraggableCard({ record, saving, onOpen, dimmed }) {
   )
 }
 
-function KanbanDetail({ record, onClose, currentStatus }) {
+function KanbanDetail({ record, onClose, currentStatus, onNavigateTo }) {
   const f = record.fieldData
 
   const builders = [
@@ -118,6 +118,7 @@ function KanbanDetail({ record, onClose, currentStatus }) {
     <div className="kb-overlay" onClick={onClose}>
       <div className="kb-detail" onClick={e => e.stopPropagation()}>
         <button className="kb-detail-close" onClick={onClose} aria-label="Close">✕</button>
+        <button className="kb-detail-nav-btn" onClick={() => { onNavigateTo?.('ccs', record.recordId); onClose(); }}>Open in CCS ◈</button>
 
         <div className="kb-detail-org">{f.zz__Display_Organization__ct || '—'}</div>
         {f.zz__Display_Contact__ct && (
@@ -242,7 +243,7 @@ function KanbanColumn({ column, records, saving, onOpen, collapsed, onToggleColl
   )
 }
 
-export default function CCSKanban() {
+export default function CCSKanban({ navTarget, onNavigateTo, onClearNav }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
@@ -291,6 +292,12 @@ export default function CCSKanban() {
   useEffect(() => {
     if (!fetching) setRefreshing(false)
   }, [fetching])
+
+  useEffect(() => {
+    if (navTarget?.moduleId !== 'ccs-kanban' || !navTarget.recordId) return;
+    const record = displayRecords.find(r => String(r.recordId) === String(navTarget.recordId));
+    if (record) { setDetailRecord(record); onClearNav?.(); }
+  }, [navTarget, displayRecords])
 
   function toggleCollapse(colId) {
     setCollapsed(prev => {
@@ -437,6 +444,7 @@ export default function CCSKanban() {
           record={detailRecord}
           currentStatus={localStatusRef.current[detailRecord.recordId] ?? detailRecord.fieldData.kanban_status}
           onClose={() => setDetailRecord(null)}
+          onNavigateTo={onNavigateTo}
         />
       )}
     </div>
