@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAllRecords } from '../hooks/useAllRecords';
-import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from '../config/ccsCache';
+import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT, rcdSlim } from '../config/ccsCache';
 import { getRecord, prefetchRecord, updateRecord, patchCachedRecord, invalidateRecord } from '../api/filemaker';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './CCS.css';
@@ -289,6 +289,7 @@ export default function CCS({ navTarget, onNavigateTo, onClearNav }) {
   const { records, total } = useAllRecords(LAYOUT, {
     cacheVersion: RCD_CACHE_VERSION,
     findQuery: RCD_FIND_QUERY,
+    sort: RCD_SORT,
     slimForStorage: rcdSlim,
   });
 

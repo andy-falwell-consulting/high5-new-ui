@@ -6,7 +6,7 @@ import Contacts from './components/Contacts'
 import CCS from './components/CCS'
 import CCSKanban from './components/CCSKanban'
 import { getAllRecords } from './api/filemaker'
-import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from './config/ccsCache'
+import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT, rcdSlim } from './config/ccsCache'
 import './light-theme.css'
 
 const MODULES = [
@@ -31,6 +31,7 @@ export default function App() {
     getAllRecords(RCD_LAYOUT, {
       cacheVersion: RCD_CACHE_VERSION,
       findQuery: RCD_FIND_QUERY,
+      sort: RCD_SORT,
       slimForStorage: rcdSlim,
     }).catch(() => {})
   }, [])

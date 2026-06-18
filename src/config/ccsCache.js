@@ -9,6 +9,7 @@ export const rcdTwoYearsAgo = () => {
 }
 
 export const RCD_FIND_QUERY = [{ zz__Created_On: `>=${rcdTwoYearsAgo()}` }]
+export const RCD_SORT = [{ fieldName: 'zz__Created_On', sortOrder: 'descend' }]
 
 export const rcdSlim = r => ({
   recordId: r.recordId,

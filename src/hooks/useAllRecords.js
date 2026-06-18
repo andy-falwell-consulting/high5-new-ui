@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getAllRecords, readCache, subscribeCacheUpdates } from '../api/filemaker';
 
-export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery, refreshKey } = {}) {
+export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery, sort, refreshKey } = {}) {
   const [state, setState] = useState(() => {
     const cached = readCache(layout, cacheVersion);
     if (cached) return { records: cached.records, total: cached.total, loading: false, error: null };
@@ -23,6 +23,7 @@ export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery,
       slimForStorage,
       cacheVersion,
       findQuery,
+      sort,
     })
       .then(() => { if (!cancelled) setFetching(false); })
       .catch((err) => {
