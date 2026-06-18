@@ -3,7 +3,7 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAllRecords } from '../hooks/useAllRecords';
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from '../config/ccsCache';
-import { getRecord, prefetchRecord, updateRecord, patchCachedRecord } from '../api/filemaker';
+import { getRecord, prefetchRecord, updateRecord, patchCachedRecord, invalidateRecord } from '../api/filemaker';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './CCS.css';
 
@@ -377,6 +377,7 @@ export default function CCS() {
     setEdits({}); setDataEditing(false); setSaveStatus(null);
     primary.setEditMode(false); checklists.setEditMode(false);
     setSelected(r); setActiveTab('primary');
+    invalidateRecord(LAYOUT, r.recordId);
     getRecord(LAYOUT, r.recordId).then(detail => {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
     }).catch(() => {});
@@ -468,6 +469,7 @@ export default function CCS() {
                 {[['primary','Primary Info'],['checklists','Checklists'],['financials','Financials']].map(([id,label]) => (
                   <button key={id} className={`ccs-tab${activeTab===id?' active':''}`} onClick={() => setActiveTab(id)}>{label}</button>
                 ))}
+                <span className="ccs-record-id">ID {selected.recordId}</span>
               </div>
               <div className="ccs-tabs-actions">
                 {saveStatus === 'saved' && <span className="ccs-status-msg saved">✓ Saved</span>}

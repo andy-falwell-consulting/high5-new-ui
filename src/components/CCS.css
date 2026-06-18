@@ -98,7 +98,19 @@
   flex-shrink: 0;
   background: #0a0c12;
 }
-.ccs-tabs-left { display: flex; gap: 2px; }
+.ccs-tabs-left { display: flex; gap: 2px; align-items: center; }
+.ccs-record-id {
+  margin-left: 10px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-family: monospace;
+  color: #64748b;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  user-select: all;
+}
+[data-theme="light"] .ccs-record-id { background: #f1f5f9; border-color: #cbd5e1; color: #64748b; }
 .ccs-tabs-actions {
   display: flex;
   align-items: center;

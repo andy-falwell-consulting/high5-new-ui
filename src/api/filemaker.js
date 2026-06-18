@@ -252,6 +252,11 @@ export function prefetchRecord(layout, recordId) {
   if (!detailCache.has(key)) getRecord(layout, recordId);
 }
 
+// Remove a record from the detail cache so the next getRecord call hits the server
+export function invalidateRecord(layout, recordId) {
+  detailCache.delete(`${layout}:${recordId}`);
+}
+
 export async function createRecord(layout, fieldData) {
   const token = await getToken();
   const env = getCurrentEnv();
