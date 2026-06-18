@@ -3,13 +3,17 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAllRecords } from '../hooks/useAllRecords';
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from '../config/ccsCache';
-import { getRecord, prefetchRecord, updateRecord } from '../api/filemaker';
+import { getRecord, prefetchRecord, updateRecord, bustCache } from '../api/filemaker';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './CCS.css';
 
 const LAYOUT = RCD_LAYOUT;
 
 const STATUS_OPTIONS  = ['Proposed','Confirmed','In Progress','Complete','Cancelled','On Hold'];
+const KANBAN_STATUSES = [
+  'New Project Inquiry','Working Proposals','Proposals Out','Sent Contract and DI',
+  'Job Prep by Date','Done/Ready for Building','Commissioning Report Needed',"No Go's (litter box)",
+];
 const PROJECT_TYPES   = ['Inspection','New Construction','Renovation','Repair','Training','Other'];
 const BUILDER_OPTIONS = ['','Lucas Germano','Ian Doak','Mike Hicks','Sam Bates','Dan Smith','Chris Young'];
 
@@ -32,7 +36,7 @@ const fmt = v => v || '—';
 const DEFAULT_PRIMARY_SECTIONS = [
   { id: 'contact',    title: 'Contact',        icon: '◉', type: 'contact' },
   { id: 'financial',  title: 'Financial',      icon: '$', type: 'financial' },
-  { id: 'project',    title: 'Project',        icon: '◈', fields: ['Type of Project','Status','rcd start date','rcd end date','Report Date Sent','Confirmed','add_to_kanban'] },
+  { id: 'project',    title: 'Project',        icon: '◈', fields: ['kanban_status','Type of Project','Status','rcd start date','rcd end date','Report Date Sent','Confirmed','add_to_kanban'] },
   { id: 'team',       title: 'Team',           icon: '⊞', fields: ['Lead Builder','Builder1','Builder2','Builder3'] },
   { id: 'work_notes', title: 'Work & Notes',   icon: '✎', fields: ['Work Order','Notes'] },
 ];
@@ -50,6 +54,7 @@ const FIELD_LABELS = {
   'Report Date Sent': 'Inspection Report Sent', Confirmed: 'Confirmed',
   'Lead Builder': 'Lead Builder', Builder1: 'Builder 1', Builder2: 'Builder 2', Builder3: 'Builder 3',
   'Work Order': 'Work Order', Notes: 'Notes',
+  kanban_status: 'Kanban Status',
   add_to_kanban: 'Add to Kanban',
 };
 
@@ -66,6 +71,7 @@ const FIELD_CONFIG = {
   Builder3:               { options: BUILDER_OPTIONS },
   'Work Order':           { textarea: true, wide: true },
   Notes:                  { textarea: true, wide: true },
+  kanban_status:          { type: 'kanban_status' },
   add_to_kanban:          { type: 'checkbox' },
 };
 
@@ -99,10 +105,23 @@ const CHECKLIST_ITEMS = {
 
 // ── Field value renderer ──────────────────────────────────────────
 
-function FieldValue({ fieldKey, value, onChange, dataEditing, f }) {
+function FieldValue({ fieldKey, value, onChange, dataEditing, f, onInstantSave }) {
   const cfg = FIELD_CONFIG[fieldKey] || {};
   const ch = v => onChange(fieldKey, v);
   const ro = !dataEditing;
+
+  if (cfg.type === 'kanban_status') {
+    return (
+      <select
+        className="sl-select"
+        value={value || ''}
+        onChange={e => onInstantSave && onInstantSave(fieldKey, e.target.value)}
+      >
+        <option value="">— Not on Kanban —</option>
+        {KANBAN_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+    );
+  }
 
   if (fieldKey === 'Status') {
     if (ro) return f?.Status
@@ -153,7 +172,7 @@ function FieldValue({ fieldKey, value, onChange, dataEditing, f }) {
 
 // ── Section content renderer ──────────────────────────────────────
 
-function SectionContent({ section, f, editMode, onFieldReorder, edits, onChange, dataEditing, handleCheckToggle }) {
+function SectionContent({ section, f, editMode, onFieldReorder, edits, onChange, dataEditing, handleCheckToggle, onInstantSave }) {
   if (section.type === 'contact') {
     return (
       <div className="ccs-contact-body">
@@ -257,7 +276,7 @@ function SectionContent({ section, f, editMode, onFieldReorder, edits, onChange,
         return (
           <SortableField key={fk} id={fk} editMode={editMode} dirty={dirty} wide={!!cfg.textarea}>
             <label>{FIELD_LABELS[fk] || fk}</label>
-            <FieldValue fieldKey={fk} value={value} onChange={onChange} dataEditing={dataEditing} f={f} />
+            <FieldValue fieldKey={fk} value={value} onChange={onChange} dataEditing={dataEditing} f={f} onInstantSave={onInstantSave} />
           </SortableField>
         );
       })}
@@ -299,7 +318,7 @@ export default function CCS() {
   const [saveStatus, setSaveStatus]     = useState(null);
   const isResizing = useRef(false);
 
-  const primary = useSortableLayout('ccs_layout_primary_v3', DEFAULT_PRIMARY_SECTIONS);
+  const primary = useSortableLayout('ccs_layout_primary_v4', DEFAULT_PRIMARY_SECTIONS);
   const checklists = useSortableLayout('ccs_layout_checklists_v2', DEFAULT_CHECKLIST_SECTIONS);
 
   // Use the active tab's layout
@@ -378,6 +397,19 @@ export default function CCS() {
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
   const handleCheckToggle = useCallback((key, on) => handleFieldChange(key, on ? 0 : 1), [handleFieldChange]);
+
+  const handleKanbanStatusChange = useCallback(async (fk, newStatus) => {
+    if (!selected) return;
+    const updates = { kanban_status: newStatus };
+    if (newStatus && !Number(selected.fieldData.add_to_kanban)) updates.add_to_kanban = 1;
+    try {
+      const res = await updateRecord(LAYOUT, selected.recordId, updates);
+      if (res.messages?.[0]?.code === '0') {
+        setSelected(p => ({ ...p, fieldData: { ...p.fieldData, ...updates } }));
+        bustCache(RCD_LAYOUT, RCD_CACHE_VERSION);
+      }
+    } catch { /* silent */ }
+  }, [selected]);
   const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
 
   const handleSave = async () => {
@@ -401,7 +433,7 @@ export default function CCS() {
   const invoices  = portals['Portal__Invoices']    || [];
   const payments  = portals['Portal__Payments']    || [];
 
-  const sharedSectionProps = { f, editMode: activeLayout?.editMode || false, edits, onChange: handleFieldChange, dataEditing, handleCheckToggle };
+  const sharedSectionProps = { f, editMode: activeLayout?.editMode || false, edits, onChange: handleFieldChange, dataEditing, handleCheckToggle, onInstantSave: handleKanbanStatusChange };
 
   return (
     <div className="ccs-root">

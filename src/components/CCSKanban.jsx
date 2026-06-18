@@ -12,7 +12,7 @@ import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove 
 import { CSS } from '@dnd-kit/utilities'
 import { useAllRecords } from '../hooks/useAllRecords'
 import { updateRecord, bustCache } from '../api/filemaker'
-import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY } from '../config/ccsCache'
+import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from '../config/ccsCache'
 import './CCSKanban.css'
 
 const LAYOUT = RCD_LAYOUT
@@ -258,11 +258,18 @@ export default function CCSKanban() {
   })
   const orderedColumns = columnOrder.map(id => COLUMNS.find(c => c.id === id)).filter(Boolean)
 
-  const { records, loading } = useAllRecords(LAYOUT, {
+  const { records, loading, fetching } = useAllRecords(LAYOUT, {
     cacheVersion: CACHE_VERSION,
     findQuery: RCD_FIND_QUERY,
+    slimForStorage: rcdSlim,
     refreshKey,
   })
+
+  // Stale-while-refreshing: only swap display records when a fetch completes
+  const [displayRecords, setDisplayRecords] = useState([])
+  useEffect(() => {
+    if (!fetching && records.length > 0) setDisplayRecords(records)
+  }, [fetching, records])
 
   const [localStatus, setLocalStatus] = useState({})
   const [saving, setSaving] = useState({})
@@ -271,7 +278,7 @@ export default function CCSKanban() {
   const localStatusRef = useRef({})
 
   function handleRefresh() {
-    if (refreshing || loading) return
+    if (refreshing || fetching) return
     bustCache(LAYOUT, CACHE_VERSION)
     setLocalStatus({})
     localStatusRef.current = {}
@@ -280,8 +287,8 @@ export default function CCSKanban() {
   }
 
   useEffect(() => {
-    if (!loading) setRefreshing(false)
-  }, [loading])
+    if (!fetching) setRefreshing(false)
+  }, [fetching])
 
   function toggleCollapse(colId) {
     setCollapsed(prev => {
@@ -300,7 +307,7 @@ export default function CCSKanban() {
   }, [])
 
   // Filter to only kanban records, then by active status
-  const kanbanRecords = records.filter(r => String(r.fieldData.add_to_kanban) === '1')
+  const kanbanRecords = displayRecords.filter(r => String(r.fieldData.add_to_kanban) === '1')
   const active = kanbanRecords.filter(r => ACTIVE_STATUSES.has(getStatus(r)))
 
   const byColumn = {}
@@ -362,7 +369,7 @@ export default function CCSKanban() {
     <div className="kb-root">
       <div className="kb-topbar">
         <button
-          className={`kb-refresh${refreshing || loading ? ' kb-refresh--spinning' : ''}`}
+          className={`kb-refresh${refreshing || fetching ? ' kb-refresh--spinning' : ''}`}
           onClick={handleRefresh}
           title="Refresh"
           aria-label="Refresh kanban"
@@ -373,7 +380,7 @@ export default function CCSKanban() {
           </svg>
         </button>
         <span className="kb-title">CCS Kanban</span>
-        {loading && <span className="kb-loading">Loading…</span>}
+        {fetching && !refreshing && <span className="kb-loading">Loading…</span>}
         {!loading && (
           <span className="kb-count">
             {search ? `${searchMatchCount} of ` : ''}{totalActive} active

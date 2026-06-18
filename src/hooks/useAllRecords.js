@@ -7,11 +7,13 @@ export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery,
     if (cached) return { records: cached.records, total: cached.total, loading: false, error: null };
     return { records: [], total: 0, loading: true, error: null };
   });
+  const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const hasCachedData = state.records.length > 0;
     if (!hasCachedData) setState({ records: [], total: 0, loading: true, error: null });
+    setFetching(true);
 
     getAllRecords(layout, {
       onProgress: ({ records, total }) => {
@@ -21,13 +23,16 @@ export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery,
       slimForStorage,
       cacheVersion,
       findQuery,
-    }).catch((err) => {
-      if (cancelled || err.name === 'AbortError') return;
-      setState((s) => ({ ...s, loading: false, error: err.message ?? String(err) }));
-    });
+    })
+      .then(() => { if (!cancelled) setFetching(false); })
+      .catch((err) => {
+        if (cancelled || err.name === 'AbortError') return;
+        setState((s) => ({ ...s, loading: false, error: err.message ?? String(err) }));
+        setFetching(false);
+      });
 
     return () => { cancelled = true; };
   }, [layout, refreshKey]);
 
-  return state;
+  return { ...state, fetching };
 }
