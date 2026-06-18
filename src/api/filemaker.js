@@ -106,6 +106,47 @@ export function bustCache(layout, cacheVersion) {
   try { localStorage.removeItem(lsKey(layout, cacheVersion)); } catch { /* ignore */ }
 }
 
+// Subscribers notified when a record is patched in-place
+const cacheSubscribers = new Map();
+
+export function subscribeCacheUpdates(layout, cacheVersion, callback) {
+  const key = memKey(layout, cacheVersion);
+  if (!cacheSubscribers.has(key)) cacheSubscribers.set(key, new Set());
+  cacheSubscribers.get(key).add(callback);
+  return () => cacheSubscribers.get(key)?.delete(callback);
+}
+
+// Patch a single record in memCache + localStorage and notify subscribers.
+// Call this after a successful updateRecord instead of busting the whole cache.
+export function patchCachedRecord(layout, cacheVersion, recordId, fieldData) {
+  const mk = memKey(layout, cacheVersion);
+  const rid = String(recordId);
+
+  if (memCache[mk]) {
+    memCache[mk].records = memCache[mk].records.map(r =>
+      String(r.recordId) === rid ? { ...r, fieldData: { ...r.fieldData, ...fieldData } } : r
+    );
+  }
+
+  try {
+    const lk = lsKey(layout, cacheVersion);
+    const raw = localStorage.getItem(lk);
+    if (raw) {
+      const entry = JSON.parse(raw);
+      entry.records = entry.records.map(r =>
+        String(r.recordId) === rid ? { ...r, fieldData: { ...r.fieldData, ...fieldData } } : r
+      );
+      localStorage.setItem(lk, JSON.stringify(entry));
+    }
+  } catch { /* quota or parse error — ignore */ }
+
+  const subs = cacheSubscribers.get(mk);
+  if (subs?.size && memCache[mk]) {
+    const { records, total } = memCache[mk];
+    subs.forEach(cb => cb(records, total));
+  }
+}
+
 // Build an image URL for a container field.
 // In dev: use the Vite-proxied Streaming_SSL URL directly.
 // In prod: route through /api/image which authenticates server-side.

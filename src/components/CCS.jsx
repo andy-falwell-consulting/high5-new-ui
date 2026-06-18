@@ -3,7 +3,7 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAllRecords } from '../hooks/useAllRecords';
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from '../config/ccsCache';
-import { getRecord, prefetchRecord, updateRecord, bustCache } from '../api/filemaker';
+import { getRecord, prefetchRecord, updateRecord, patchCachedRecord } from '../api/filemaker';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './CCS.css';
 
@@ -71,7 +71,7 @@ const FIELD_CONFIG = {
   Builder3:               { options: BUILDER_OPTIONS },
   'Work Order':           { textarea: true, wide: true },
   Notes:                  { textarea: true, wide: true },
-  kanban_status:          { type: 'kanban_status' },
+  kanban_status:          { options: KANBAN_STATUSES },
   add_to_kanban:          { type: 'checkbox' },
 };
 
@@ -105,23 +105,10 @@ const CHECKLIST_ITEMS = {
 
 // ── Field value renderer ──────────────────────────────────────────
 
-function FieldValue({ fieldKey, value, onChange, dataEditing, f, onInstantSave }) {
+function FieldValue({ fieldKey, value, onChange, dataEditing, f }) {
   const cfg = FIELD_CONFIG[fieldKey] || {};
   const ch = v => onChange(fieldKey, v);
   const ro = !dataEditing;
-
-  if (cfg.type === 'kanban_status') {
-    return (
-      <select
-        className="sl-select"
-        value={value || ''}
-        onChange={e => onInstantSave && onInstantSave(fieldKey, e.target.value)}
-      >
-        <option value="">— Not on Kanban —</option>
-        {KANBAN_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
-    );
-  }
 
   if (fieldKey === 'Status') {
     if (ro) return f?.Status
@@ -172,7 +159,7 @@ function FieldValue({ fieldKey, value, onChange, dataEditing, f, onInstantSave }
 
 // ── Section content renderer ──────────────────────────────────────
 
-function SectionContent({ section, f, editMode, onFieldReorder, edits, onChange, dataEditing, handleCheckToggle, onInstantSave }) {
+function SectionContent({ section, f, editMode, onFieldReorder, edits, onChange, dataEditing, handleCheckToggle }) {
   if (section.type === 'contact') {
     return (
       <div className="ccs-contact-body">
@@ -276,7 +263,7 @@ function SectionContent({ section, f, editMode, onFieldReorder, edits, onChange,
         return (
           <SortableField key={fk} id={fk} editMode={editMode} dirty={dirty} wide={!!cfg.textarea}>
             <label>{FIELD_LABELS[fk] || fk}</label>
-            <FieldValue fieldKey={fk} value={value} onChange={onChange} dataEditing={dataEditing} f={f} onInstantSave={onInstantSave} />
+            <FieldValue fieldKey={fk} value={value} onChange={onChange} dataEditing={dataEditing} f={f} />
           </SortableField>
         );
       })}
@@ -398,18 +385,6 @@ export default function CCS() {
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
   const handleCheckToggle = useCallback((key, on) => handleFieldChange(key, on ? 0 : 1), [handleFieldChange]);
 
-  const handleKanbanStatusChange = useCallback(async (fk, newStatus) => {
-    if (!selected) return;
-    const updates = { kanban_status: newStatus };
-    if (newStatus && !Number(selected.fieldData.add_to_kanban)) updates.add_to_kanban = 1;
-    try {
-      const res = await updateRecord(LAYOUT, selected.recordId, updates);
-      if (res.messages?.[0]?.code === '0') {
-        setSelected(p => ({ ...p, fieldData: { ...p.fieldData, ...updates } }));
-        bustCache(RCD_LAYOUT, RCD_CACHE_VERSION);
-      }
-    } catch { /* silent */ }
-  }, [selected]);
   const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
 
   const handleSave = async () => {
@@ -419,6 +394,7 @@ export default function CCS() {
       const res = await updateRecord(LAYOUT, selected.recordId, edits);
       if (res.messages?.[0]?.code === '0') {
         setSelected(p => ({ ...p, fieldData: { ...p.fieldData, ...edits } }));
+        patchCachedRecord(RCD_LAYOUT, RCD_CACHE_VERSION, selected.recordId, edits);
         setEdits({}); setDataEditing(false); setSaveStatus('saved');
         setTimeout(() => setSaveStatus(null), 3000);
       } else { setSaveStatus('error'); }
@@ -433,7 +409,7 @@ export default function CCS() {
   const invoices  = portals['Portal__Invoices']    || [];
   const payments  = portals['Portal__Payments']    || [];
 
-  const sharedSectionProps = { f, editMode: activeLayout?.editMode || false, edits, onChange: handleFieldChange, dataEditing, handleCheckToggle, onInstantSave: handleKanbanStatusChange };
+  const sharedSectionProps = { f, editMode: activeLayout?.editMode || false, edits, onChange: handleFieldChange, dataEditing, handleCheckToggle };
 
   return (
     <div className="ccs-root">

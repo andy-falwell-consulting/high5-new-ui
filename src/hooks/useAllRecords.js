@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getAllRecords, readCache } from '../api/filemaker';
+import { getAllRecords, readCache, subscribeCacheUpdates } from '../api/filemaker';
 
 export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery, refreshKey } = {}) {
   const [state, setState] = useState(() => {
@@ -33,6 +33,13 @@ export function useAllRecords(layout, { slimForStorage, cacheVersion, findQuery,
 
     return () => { cancelled = true; };
   }, [layout, refreshKey]);
+
+  // Keep state in sync with surgical record patches from patchCachedRecord
+  useEffect(() => {
+    return subscribeCacheUpdates(layout, cacheVersion, (records, total) => {
+      setState(prev => ({ ...prev, records, total }));
+    });
+  }, [layout, cacheVersion]);
 
   return { ...state, fetching };
 }
