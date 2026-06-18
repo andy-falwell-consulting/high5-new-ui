@@ -12,16 +12,11 @@ import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove 
 import { CSS } from '@dnd-kit/utilities'
 import { useAllRecords } from '../hooks/useAllRecords'
 import { updateRecord, bustCache } from '../api/filemaker'
+import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY } from '../config/ccsCache'
 import './CCSKanban.css'
 
-const LAYOUT = 'RCD_app'
-const CACHE_VERSION = 5
-
-const twoYearsAgo = (() => {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() - 2)
-  return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`
-})()
+const LAYOUT = RCD_LAYOUT
+const CACHE_VERSION = RCD_CACHE_VERSION
 
 const COLUMNS = [
   { id: 'New Project Inquiry',          label: 'New Project Inquiry',          color: '#3b82f6' },
@@ -265,7 +260,7 @@ export default function CCSKanban() {
 
   const { records, loading } = useAllRecords(LAYOUT, {
     cacheVersion: CACHE_VERSION,
-    findQuery: [{ zz__Created_On: `>=${twoYearsAgo}` }],
+    findQuery: RCD_FIND_QUERY,
     refreshKey,
   })
 

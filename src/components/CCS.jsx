@@ -2,11 +2,12 @@ import { useState, useCallback, useRef } from 'react';
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAllRecords } from '../hooks/useAllRecords';
+import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from '../config/ccsCache';
 import { getRecord, prefetchRecord, updateRecord } from '../api/filemaker';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './CCS.css';
 
-const LAYOUT = 'RCD_app';
+const LAYOUT = RCD_LAYOUT;
 
 const STATUS_OPTIONS  = ['Proposed','Confirmed','In Progress','Complete','Cancelled','On Hold'];
 const PROJECT_TYPES   = ['Inspection','New Construction','Renovation','Repair','Training','Other'];
@@ -279,29 +280,10 @@ function PortalTable({ columns, rows }) {
 }
 
 export default function CCS() {
-  const twoYearsAgo = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 2); return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`; })();
   const { records, total } = useAllRecords(LAYOUT, {
-    cacheVersion: 5,
-    findQuery: [{ zz__Created_On: `>=${twoYearsAgo}` }],
-    slimForStorage: r => ({
-      recordId: r.recordId,
-      fieldData: {
-        zz__Display_Organization__ct: r.fieldData.zz__Display_Organization__ct,
-        zz__Display_Contact__ct: r.fieldData.zz__Display_Contact__ct,
-        Status: r.fieldData.Status,
-        kanban_status: r.fieldData.kanban_status,
-        add_to_kanban: r.fieldData.add_to_kanban,
-        'Type of Project': r.fieldData['Type of Project'],
-        'rcd start date': r.fieldData['rcd start date'],
-        'Work Order': r.fieldData['Work Order'],
-        'Lead Builder': r.fieldData['Lead Builder'],
-        Builder1: r.fieldData.Builder1,
-        Builder2: r.fieldData.Builder2,
-        Builder3: r.fieldData.Builder3,
-        zz__Created_On: r.fieldData.zz__Created_On,
-        zz__Modified_On: r.fieldData.zz__Modified_On,
-      },
-    }),
+    cacheVersion: RCD_CACHE_VERSION,
+    findQuery: RCD_FIND_QUERY,
+    slimForStorage: rcdSlim,
   });
 
   const [selected, setSelected]         = useState(null);

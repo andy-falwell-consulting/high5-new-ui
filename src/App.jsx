@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import EnvSwitcher from './components/EnvSwitcher'
 import NavRail from './components/NavRail'
 import ProductsAndServicesV2 from './components/ProductsAndServicesV2'
 import Contacts from './components/Contacts'
 import CCS from './components/CCS'
 import CCSKanban from './components/CCSKanban'
+import { getAllRecords } from './api/filemaker'
+import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, rcdSlim } from './config/ccsCache'
 import './light-theme.css'
 
 const MODULES = [
@@ -22,6 +24,15 @@ export default function App() {
   const [activeModule, setActiveModule] = useState('contacts')
   const [visited, setVisited] = useState(() => new Set(['contacts']))
   const [theme, setTheme] = useState(getInitialTheme)
+
+  // Pre-warm the RCD cache on startup so CCS and CCS Kanban load instantly
+  useEffect(() => {
+    getAllRecords(RCD_LAYOUT, {
+      cacheVersion: RCD_CACHE_VERSION,
+      findQuery: RCD_FIND_QUERY,
+      slimForStorage: rcdSlim,
+    }).catch(() => {})
+  }, [])
 
   function handleSelect(id) {
     setActiveModule(id)
