@@ -5,6 +5,7 @@ import ProductsAndServicesV2 from './components/ProductsAndServicesV2'
 import Contacts from './components/Contacts'
 import Inspections from './components/Inspections'
 import CCS from './components/CCS'
+import CCSv2 from './components/CCSv2'
 import CCSKanban from './components/CCSKanban'
 import { getAllRecords } from './api/filemaker'
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT } from './config/ccsCache'
@@ -15,6 +16,7 @@ const MODULES = [
   { id: 'inspections', label: 'Inspections', icon: '⚑' },
   { id: 'products', label: 'Products & Services', icon: '📦' },
   { id: 'ccs', label: 'CCS', icon: '◈' },
+  { id: 'ccs-v2', label: 'CCS v2', icon: '✦' },
   { id: 'ccs-kanban', label: 'CCS Kanban', icon: '⊞' },
 ]
 
@@ -65,6 +67,7 @@ export default function App() {
         {visited.has('inspections') && <div style={{ display: activeModule === 'inspections' ? 'contents' : 'none' }}><Inspections /></div>}
         {visited.has('products') && <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 /></div>}
         {visited.has('ccs') && <div style={{ display: activeModule === 'ccs' ? 'contents' : 'none' }}><CCS navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
+        {visited.has('ccs-v2') && <div style={{ display: activeModule === 'ccs-v2' ? 'contents' : 'none' }}><CCSv2 navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
         {visited.has('ccs-kanban') && <div style={{ display: activeModule === 'ccs-kanban' ? 'contents' : 'none' }}><CCSKanban navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
       </div>
     </div>
