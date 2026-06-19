@@ -1,3 +1,20 @@
+const QBO_INCOME_NAMES = {
+  '151': '4010 - Open Enrollment',
+  '177': '4020 - Custom training',
+  '112': '4021 - Adult Custom Direct Service',
+  '116': '4022 - Corporate Programs',
+  '117': '4023 - College Programs',
+  '118': '4024 - Youth Programs',
+  '137': '4050 - Program Review',
+  '329': '4065 - Planning - Custom',
+  '236': '4200 - Challenge Course Services',
+  '244': '4210 - Low or High Elements (new installations)',
+  '303': '4230 - Inspection Services',
+  '268': '4240 - Repairs',
+  '155': '4410 - Store / Catalog Sales',
+  '156': '4430 - Manuals and Miscellaneous Items',
+};
+
 // Push a product record to Shopify. Returns { shopifyId, variantId } on success.
 export async function pushToShopify(f, recordId, existingShopifyId = null) {
   const product = {
@@ -25,12 +42,17 @@ export async function pushToShopify(f, recordId, existingShopifyId = null) {
 
 // Push a product record to QBO. Returns { qboId } on success.
 export async function pushToQBO(f, existingQboId = null, incomeAccount = null) {
+  const incomeRef = incomeAccount
+    ? { value: String(incomeAccount), name: QBO_INCOME_NAMES[incomeAccount] ?? '' }
+    : null;
+
   const item = {
     Name: f.Name,
     Type: f.Type === 'Service' ? 'Service' : 'NonInventory',
+    Sku: f.SKU || '',
     Description: f.Description || '',
     UnitPrice: Number(f.Unit_Price || 0),
-    ...(incomeAccount ? { IncomeAccountRef: { value: incomeAccount } } : {}),
+    ...(incomeRef ? { IncomeAccountRef: incomeRef } : {}),
   };
 
   const action = existingQboId ? 'update' : 'create';

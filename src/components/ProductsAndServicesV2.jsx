@@ -211,7 +211,7 @@ function SectionContent({ section, fieldData, portalData, editMode, onFieldReord
   );
 }
 
-const AUTO_SYNC_FIELDS = new Set(['Name', 'Unit_Price', 'Description', 'SKU']);
+const AUTO_SYNC_FIELDS = new Set(['Name', 'Unit_Price', 'Description', 'SKU', 'QuickBooks_Account_Income']);
 
 export default function ProductsAndServicesV2() {
   const { records, total, loading, error } = useAllRecords(LAYOUT, {
