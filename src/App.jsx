@@ -6,9 +6,11 @@ import Inspections from './components/Inspections'
 import CCS from './components/CCS'
 import CCSv2 from './components/CCSv2'
 import CCSKanban from './components/CCSKanban'
+import CommandPalette from './components/CommandPalette'
 import { getAllRecords } from './api/filemaker'
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT } from './config/ccsCache'
 import './light-theme.css'
+import './components/CommandPalette.css'
 
 const MODULES = [
   { id: 'contacts', label: 'Contacts', icon: '◉', group: 'Records' },
@@ -28,6 +30,7 @@ export default function App() {
   const [visited, setVisited] = useState(() => new Set(['contacts']))
   const [theme, setTheme] = useState(getInitialTheme)
   const [navTarget, setNavTarget] = useState(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   // Pre-warm all module caches on startup so every tab loads instantly
   useEffect(() => {
@@ -35,6 +38,18 @@ export default function App() {
     getAllRecords('Contacts_New', { cacheVersion: 2, batchSize: 100 }).catch(() => {})
     getAllRecords('Inspections_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {})
     getAllRecords('Products & Services_New', { cacheVersion: 4, batchSize: 100 }).catch(() => {})
+  }, [])
+
+  // Global ⌘K / Ctrl+K to open the command palette
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen(o => !o)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   function handleSelect(id) {
@@ -45,6 +60,11 @@ export default function App() {
   function navigateTo(moduleId, recordId) {
     setNavTarget({ moduleId, recordId })
     handleSelect(moduleId)
+  }
+
+  function handlePalettePick(moduleId, recordId) {
+    if (recordId) navigateTo(moduleId, recordId)
+    else handleSelect(moduleId)
   }
 
   function clearNavTarget() {
@@ -59,13 +79,14 @@ export default function App() {
 
   return (
     <div data-theme={theme} style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-        <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} onToggleTheme={toggleTheme} />
-        {visited.has('contacts') && <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts /></div>}
-        {visited.has('inspections') && <div style={{ display: activeModule === 'inspections' ? 'contents' : 'none' }}><Inspections /></div>}
-        {visited.has('products') && <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 /></div>}
+        <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} onToggleTheme={toggleTheme} onOpenPalette={() => setPaletteOpen(true)} />
+        {visited.has('contacts') && <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
+        {visited.has('inspections') && <div style={{ display: activeModule === 'inspections' ? 'contents' : 'none' }}><Inspections navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
+        {visited.has('products') && <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
         {visited.has('ccs') && <div style={{ display: activeModule === 'ccs' ? 'contents' : 'none' }}><CCS navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
         {visited.has('ccs-v2') && <div style={{ display: activeModule === 'ccs-v2' ? 'contents' : 'none' }}><CCSv2 navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
         {visited.has('ccs-kanban') && <div style={{ display: activeModule === 'ccs-kanban' ? 'contents' : 'none' }}><CCSKanban navTarget={navTarget} onNavigateTo={navigateTo} onClearNav={clearNavTarget} /></div>}
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onPick={handlePalettePick} modules={MODULES} theme={theme} onToggleTheme={toggleTheme} />
     </div>
   )
 }

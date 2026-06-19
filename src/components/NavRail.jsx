@@ -8,7 +8,7 @@ const DEFAULT_WIDTH = 196
 
 const ENV_DOT = { development: '#22c55e', staging: '#f59e0b', production: '#ef4444' }
 
-export default function NavRail({ modules, activeId, onSelect, theme, onToggleTheme }) {
+export default function NavRail({ modules, activeId, onSelect, theme, onToggleTheme, onOpenPalette }) {
   const [width, setWidth] = useState(DEFAULT_WIDTH)
   const [collapsed, setCollapsed] = useState(false)
   const dragStart = useRef(null)
@@ -126,6 +126,21 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
           {showLabels && (
             <button onClick={() => setCollapsed(true)} title="Collapse"
               style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: c.mutedLabel, fontSize: 14, lineHeight: 1, padding: 2 }}>«</button>
+          )}
+        </div>
+
+        {/* ── Command palette trigger ── */}
+        <div style={{ padding: showLabels ? '0 10px 8px' : '0 0 8px', display: 'flex', justifyContent: 'center' }}>
+          {showLabels ? (
+            <button onClick={onOpenPalette} title="Search (⌘K)"
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 9px', background: c.footerBtn, border: `1px solid ${c.footerBorder}`, borderRadius: 8, cursor: 'pointer', color: c.mutedLabel }}>
+              <span style={{ fontSize: 14 }}>⌕</span>
+              <span style={{ flex: 1, textAlign: 'left', fontSize: 12 }}>Search…</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, border: `1px solid ${c.divider}`, borderRadius: 4, padding: '1px 5px' }}>⌘K</span>
+            </button>
+          ) : (
+            <button onClick={onOpenPalette} title="Search (⌘K)"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 30, background: 'none', border: 'none', cursor: 'pointer', color: c.mutedLabel, fontSize: 16 }}>⌕</button>
           )}
         </div>
 

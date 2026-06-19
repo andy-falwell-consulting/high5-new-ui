@@ -181,7 +181,7 @@ function SectionContent({ section, fieldData, portalData, editMode, onFieldReord
   );
 }
 
-export default function Contacts() {
+export default function Contacts({ navTarget, onClearNav } = {}) {
   const { records, total } = useAllRecords(LAYOUT, { cacheVersion: 2 });
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
@@ -245,6 +245,13 @@ export default function Contacts() {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
     }).catch(() => {});
   }
+
+  // Deep-link from the command palette: select a record by id
+  useEffect(() => {
+    if (navTarget?.moduleId !== 'contacts' || !navTarget.recordId) return;
+    const rec = records.find(r => String(r.recordId) === String(navTarget.recordId));
+    if (rec) { handleSelect(rec); onClearNav?.(); }
+  }, [navTarget, records]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
   const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };

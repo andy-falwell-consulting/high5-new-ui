@@ -213,7 +213,7 @@ function SectionContent({ section, fieldData, portalData, editMode, onFieldReord
 
 const AUTO_SYNC_FIELDS = new Set(['Name', 'Unit_Price', 'Description', 'SKU', 'QuickBooks_Account_Income']);
 
-export default function ProductsAndServicesV2() {
+export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
   const { records, total, loading, error } = useAllRecords(LAYOUT, {
     cacheVersion: 4,
     slimForStorage: r => ({
@@ -324,6 +324,13 @@ export default function ProductsAndServicesV2() {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
     }).catch(() => {});
   }
+
+  // Deep-link from the command palette: select a record by id
+  useEffect(() => {
+    if (navTarget?.moduleId !== 'products' || !navTarget.recordId) return;
+    const rec = records.find(r => String(r.recordId) === String(navTarget.recordId));
+    if (rec) { handleSelect(rec); onClearNav?.(); }
+  }, [navTarget, records]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
   const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
