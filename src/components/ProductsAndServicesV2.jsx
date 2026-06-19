@@ -357,9 +357,12 @@ export default function ProductsAndServicesV2() {
       if (target === 'shopify') {
         const existing = f._kat__Item_ID_Shopify || null;
         const { shopifyId, variantId } = await pushToShopify(f, selected.recordId, existing);
-        if (!existing) {
-          await updateRecord(LAYOUT, selected.recordId, { _kat__Item_ID_Shopify: shopifyId, _kat__Item_Variant_Id: variantId });
-          setSelected(p => ({ ...p, fieldData: { ...p.fieldData, _kat__Item_ID_Shopify: shopifyId, _kat__Item_Variant_Id: variantId } }));
+        const fmpUpdates = {};
+        if (!existing) fmpUpdates._kat__Item_ID_Shopify = shopifyId;
+        if (variantId && variantId !== f._kat__Item_Variant_Id) fmpUpdates._kat__Item_Variant_Id = variantId;
+        if (Object.keys(fmpUpdates).length) {
+          await updateRecord(LAYOUT, selected.recordId, fmpUpdates);
+          setSelected(p => ({ ...p, fieldData: { ...p.fieldData, ...fmpUpdates } }));
         }
       } else if (target === 'qbo') {
         const existing = f._kat__Item_ID_QuickBooks || null;
