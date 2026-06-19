@@ -62,51 +62,97 @@ export async function getRecords(layout, limit = 100, offset = 1, signal) {
 }
 
 const MEM_TTL_MS = 5 * 60 * 1000;
-const LS_TTL_MS = 24 * 60 * 60 * 1000;
+const IDB_TTL_MS = 24 * 60 * 60 * 1000;
 const memCache = {};
 
-function lsKey(layout, cacheVersion) {
+function idbKey(layout, cacheVersion) {
   return cacheVersion ? `fmp_cache__${layout}__v${cacheVersion}` : `fmp_cache__${layout}`;
 }
 function memKey(layout, cacheVersion) {
   return cacheVersion ? `${layout}__v${cacheVersion}` : layout;
 }
 
+// ── IndexedDB helpers ─────────────────────────────────────────────
+let _db = null;
+function getDb() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('fmp_cache', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('records');
+    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key) {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('records', 'readonly').objectStore('records').get(key);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSet(key, value) {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readwrite');
+    tx.objectStore('records').put(value, key);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDelete(key) {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('records', 'readwrite');
+    tx.objectStore('records').delete(key);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ── Cache read/write ──────────────────────────────────────────────
+
+// Sync: memCache only. Used where async isn't possible.
 export function readCache(layout, cacheVersion) {
   const mk = memKey(layout, cacheVersion);
-  // 1. Check in-memory cache first
   const mem = memCache[mk];
   if (mem) {
     if (Date.now() - mem.ts < MEM_TTL_MS) return { records: mem.records, total: mem.total, fresh: true, complete: mem.complete };
     delete memCache[mk];
   }
-  // 2. Fall back to localStorage
-  try {
-    const raw = localStorage.getItem(lsKey(layout, cacheVersion));
-    if (raw) {
-      const entry = JSON.parse(raw);
-      if (Date.now() - entry.ts < LS_TTL_MS) return { records: entry.records, total: entry.total, fresh: false, complete: entry.complete ?? true };
-      localStorage.removeItem(lsKey(layout, cacheVersion));
-    }
-  } catch { /* storage unavailable */ }
   return null;
 }
 
-function writeCache(layout, records, total, complete = true, storageRecords = null, cacheVersion) {
+// Async: memCache → IndexedDB. Used in getAllRecords.
+export async function readCacheAsync(layout, cacheVersion) {
+  const sync = readCache(layout, cacheVersion);
+  if (sync) return sync;
+  try {
+    const entry = await idbGet(idbKey(layout, cacheVersion));
+    if (entry) {
+      if (Date.now() - entry.ts < IDB_TTL_MS) {
+        memCache[memKey(layout, cacheVersion)] = { ts: entry.ts, records: entry.records, total: entry.total, complete: entry.complete };
+        return { records: entry.records, total: entry.total, fresh: false, complete: entry.complete ?? true };
+      }
+      idbDelete(idbKey(layout, cacheVersion)).catch(() => {});
+    }
+  } catch { /* IDB unavailable */ }
+  return null;
+}
+
+async function writeCache(layout, records, total, complete = true, cacheVersion) {
   const mk = memKey(layout, cacheVersion);
   const ts = Date.now();
-  if (complete) memCache[mk] = { ts, records, total, complete };
-  // Write slim records to localStorage (caller may pass a smaller subset to stay within quota)
-  const lsRecords = storageRecords ?? records;
-  try { localStorage.setItem(lsKey(layout, cacheVersion), JSON.stringify({ ts, records: lsRecords, total, complete })); } catch { /* quota exceeded */ }
+  memCache[mk] = { ts, records, total, complete };
+  try { await idbSet(idbKey(layout, cacheVersion), { ts, records, total, complete }); } catch { /* ignore */ }
 }
 
 export function bustCache(layout, cacheVersion) {
   delete memCache[memKey(layout, cacheVersion)];
-  try { localStorage.removeItem(lsKey(layout, cacheVersion)); } catch { /* ignore */ }
+  idbDelete(idbKey(layout, cacheVersion)).catch(() => {});
 }
 
-// Subscribers notified when a record is patched in-place
+// ── Pub/sub ───────────────────────────────────────────────────────
 const cacheSubscribers = new Map();
 
 export function subscribeCacheUpdates(layout, cacheVersion, callback) {
@@ -116,8 +162,7 @@ export function subscribeCacheUpdates(layout, cacheVersion, callback) {
   return () => cacheSubscribers.get(key)?.delete(callback);
 }
 
-// Patch a single record in memCache + localStorage and notify subscribers.
-// Call this after a successful updateRecord instead of busting the whole cache.
+// Patch a single record in memCache + IDB and notify subscribers.
 export function patchCachedRecord(layout, cacheVersion, recordId, fieldData) {
   const mk = memKey(layout, cacheVersion);
   const rid = String(recordId);
@@ -126,19 +171,9 @@ export function patchCachedRecord(layout, cacheVersion, recordId, fieldData) {
     memCache[mk].records = memCache[mk].records.map(r =>
       String(r.recordId) === rid ? { ...r, fieldData: { ...r.fieldData, ...fieldData } } : r
     );
+    // Persist patched records to IDB async (fire-and-forget)
+    idbSet(idbKey(layout, cacheVersion), { ...memCache[mk] }).catch(() => {});
   }
-
-  try {
-    const lk = lsKey(layout, cacheVersion);
-    const raw = localStorage.getItem(lk);
-    if (raw) {
-      const entry = JSON.parse(raw);
-      entry.records = entry.records.map(r =>
-        String(r.recordId) === rid ? { ...r, fieldData: { ...r.fieldData, ...fieldData } } : r
-      );
-      localStorage.setItem(lk, JSON.stringify(entry));
-    }
-  } catch { /* quota or parse error — ignore */ }
 
   const subs = cacheSubscribers.get(mk);
   if (subs?.size && memCache[mk]) {
@@ -184,12 +219,11 @@ async function findRecords(layout, query, limit, offset, signal, sort) {
 
 const CHECKPOINT_EVERY = 10;
 
-async function fetchAllFromServer(layout, { onProgress, batchSize, slimForStorage, cacheVersion, findQuery, sort }) {
+async function fetchAllFromServer(layout, { onProgress, batchSize, cacheVersion, findQuery, sort }) {
   const controller = new AbortController();
   let all = [];
   let total = null;
   let offset = 1;
-  let batchCount = 0;
 
   while (true) {
     const data = findQuery
@@ -198,24 +232,18 @@ async function fetchAllFromServer(layout, { onProgress, batchSize, slimForStorag
     const batch = data.response?.data || [];
     if (total === null) total = data.response?.dataInfo?.foundCount ?? data.response?.dataInfo?.totalRecordCount ?? 0;
     all = all.concat(batch);
-    batchCount++;
     const done = all.length >= total || batch.length === 0;
     if (onProgress) onProgress({ records: all, total, done });
-    if (batchCount % CHECKPOINT_EVERY === 0 && !done) {
-      const slim = slimForStorage ? all.map(slimForStorage) : null;
-      writeCache(layout, all, total, false, slim, cacheVersion);
-    }
     if (done) break;
     offset += batchSize;
   }
 
-  const slim = slimForStorage ? all.map(slimForStorage) : null;
-  writeCache(layout, all, total, true, slim, cacheVersion);
+  await writeCache(layout, all, total, true, cacheVersion);
   return { records: all, total };
 }
 
 export async function getAllRecords(layout, { onProgress, batchSize = 100, slimForStorage, cacheVersion, findQuery, sort } = {}) {
-  const cached = readCache(layout, cacheVersion);
+  const cached = await readCacheAsync(layout, cacheVersion);
 
   if (cached?.fresh && cached?.complete) {
     if (onProgress) onProgress({ records: cached.records, total: cached.total, done: true });
@@ -224,11 +252,11 @@ export async function getAllRecords(layout, { onProgress, batchSize = 100, slimF
 
   if (cached) {
     if (onProgress) onProgress({ records: cached.records, total: cached.total, done: true });
-    fetchAllFromServer(layout, { batchSize, slimForStorage, cacheVersion, findQuery, sort }).catch(() => {});
+    fetchAllFromServer(layout, { batchSize, cacheVersion, findQuery, sort }).catch(() => {});
     return cached;
   }
 
-  return fetchAllFromServer(layout, { onProgress, batchSize, slimForStorage, cacheVersion, findQuery, sort });
+  return fetchAllFromServer(layout, { onProgress, batchSize, cacheVersion, findQuery, sort });
 }
 
 const detailCache = new Map();

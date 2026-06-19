@@ -12,7 +12,7 @@ import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove 
 import { CSS } from '@dnd-kit/utilities'
 import { useAllRecords } from '../hooks/useAllRecords'
 import { updateRecord, bustCache, patchCachedRecord } from '../api/filemaker'
-import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT, rcdSlim } from '../config/ccsCache'
+import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT } from '../config/ccsCache'
 import './CCSKanban.css'
 
 const LAYOUT = RCD_LAYOUT
@@ -263,7 +263,6 @@ export default function CCSKanban({ navTarget, onNavigateTo, onClearNav }) {
     cacheVersion: CACHE_VERSION,
     findQuery: RCD_FIND_QUERY,
     sort: RCD_SORT,
-    slimForStorage: rcdSlim,
     refreshKey,
   })
 
