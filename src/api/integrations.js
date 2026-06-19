@@ -17,11 +17,14 @@ const QBO_INCOME_NAMES = {
 
 // Push a product record to Shopify. Returns { shopifyId, variantId } on success.
 export async function pushToShopify(f, recordId, existingShopifyId = null) {
+  const variant = { price: String(f.Unit_Price || 0), sku: f.SKU || '' };
+  if (existingShopifyId && f._kat__Item_Variant_Id) variant.id = Number(f._kat__Item_Variant_Id);
+
   const product = {
     title: f.Name,
     body_html: f.Description || '',
     status: existingShopifyId ? undefined : (f.status || 'draft'),
-    variants: [{ price: String(f.Unit_Price || 0), sku: f.SKU || '' }],
+    variants: [variant],
   };
 
   const action = existingShopifyId ? 'update' : 'create';
