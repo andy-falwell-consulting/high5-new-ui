@@ -20,14 +20,20 @@ const TYPE_OPTIONS    = ['Individual', 'Organization', 'Vendor', 'Staff'];
 const STATUS_OPTIONS  = ['Active', 'Inactive', 'Prospect'];
 
 const DEFAULT_SECTIONS = [
-  { id: 'identity',  title: 'Identity',         icon: '◈', fields: ['Name_Organization','Type','Status','Industry','Department','Source','Spouse','Birthdate'] },
-  { id: 'phone',     title: 'Phone',             icon: '✆', type: 'portal' },
-  { id: 'email',     title: 'Email',             icon: '✉', type: 'portal' },
-  { id: 'address',   title: 'Address',           icon: '◎', type: 'portal' },
-  { id: 'related',   title: 'Related Contacts',  icon: '◉', type: 'portal' },
-  { id: 'estimates', title: 'Estimates',         icon: '≡', type: 'portal' },
-  { id: 'invoices',  title: 'Invoices',          icon: '$', type: 'portal' },
-  { id: 'notes',     title: 'Notes',             icon: '✎', fields: ['Client_Alert','Keywords','Notes'] },
+  { id: 'identity',        title: 'Identity',         icon: '◈', fields: ['Name_Organization','Type','Status','Industry','Department','Source','Spouse','Birthdate'] },
+  { id: 'phone',           title: 'Phone',            icon: '✆', type: 'portal' },
+  { id: 'email',           title: 'Email',            icon: '✉', type: 'portal' },
+  { id: 'address',         title: 'Address',          icon: '◎', type: 'portal' },
+  { id: 'related',         title: 'Related Contacts', icon: '◉', type: 'portal' },
+  { id: 'inspections',     title: 'Inspections',      icon: '⚑', type: 'portal' },
+  { id: 'custom_training', title: 'Custom Training',  icon: '◑', type: 'portal' },
+  { id: 'oe_training',     title: 'OE Training',      icon: '⊙', type: 'portal' },
+  { id: 'ccs',             title: 'CCS',              icon: '◈', type: 'portal' },
+  { id: 'certifications',  title: 'Certifications',   icon: '✦', type: 'portal' },
+  { id: 'estimates',       title: 'Estimates',        icon: '≡', type: 'portal' },
+  { id: 'invoices',        title: 'Invoices',         icon: '$', type: 'portal' },
+  { id: 'rmi',             title: 'RMI',              icon: '⚠', type: 'portal' },
+  { id: 'notes',           title: 'Notes',            icon: '✎', fields: ['Client_Alert','Keywords','Notes'] },
 ];
 
 const FIELD_LABELS = {
@@ -40,12 +46,18 @@ const FIELD_LABELS = {
 function portalHasData(id, p) {
   if (!p) return false;
   const map = {
-    phone: p.cntct_PHONE?.length > 0,
-    email: p.cntct_INADR?.length > 0,
-    address: p.cntct_ADDR?.length > 0,
-    related: p.Portal__Contacts?.length > 0,
-    estimates: p['Portal__Estimates 2']?.length > 0,
-    invoices: p.Portal__Invoices?.length > 0,
+    phone:           p.cntct_PHONE?.length > 0,
+    email:           p.cntct_INADR?.length > 0,
+    address:         p.cntct_ADDR?.length > 0,
+    related:         p.Portal__Contacts?.length > 0,
+    inspections:     p.Portal__Opportunities?.length > 0,
+    custom_training: p.Portal__Estimates?.length > 0,
+    oe_training:     p['Portal__Orders']?.length > 0,
+    ccs:             p['Portal__Orders 2']?.length > 0,
+    certifications:  p.Portal__Projects?.length > 0,
+    estimates:       p['Portal__Estimates 2']?.length > 0,
+    invoices:        p.Portal__Invoices?.length > 0,
+    rmi:             p['Portal__Estimates 3']?.length > 0,
   };
   return map[id] ?? false;
 }
@@ -101,6 +113,36 @@ function SectionContent({ section, fieldData, portalData, editMode, onFieldReord
     if (section.id === 'related') return (
       <div className="ct-table-wrap"><table className="ct-table"><thead><tr><th>Name</th><th>Phone</th><th>Email</th></tr></thead>
         <tbody>{p.Portal__Contacts.map((r, i) => <tr key={i}><td>{r['cntct_RLTN::zz__Display__ct']}</td><td className="mono">{r['cntct_rltn_cntct_PHONE::Number']}</td><td>{r['cntct_rltn_cntct_INADR__email::Address']}</td></tr>)}</tbody>
+      </table></div>
+    );
+    if (section.id === 'inspections') return (
+      <div className="ct-table-wrap"><table className="ct-table"><thead><tr><th>Date</th><th>Organization</th><th>Contact</th><th>Inspector</th></tr></thead>
+        <tbody>{p.Portal__Opportunities.map((r, i) => <tr key={i}><td>{r['cntct_INSPT::Date']}</td><td>{r['cntct_INSPT::zz__Display_Organization__ct']}</td><td>{r['cntct_INSPT::zz__Display_Contact__ct']}</td><td>{r['cntct_INSPT::Inspectors Name']}</td></tr>)}</tbody>
+      </table></div>
+    );
+    if (section.id === 'custom_training') return (
+      <div className="ct-table-wrap"><table className="ct-table"><thead><tr><th>Organization</th><th>Contact</th><th>Type</th><th>Start Date</th><th>Status</th></tr></thead>
+        <tbody>{p.Portal__Estimates.map((r, i) => <tr key={i}><td>{r['cntct_TRNPP::zz__Display_Organization__ct']}</td><td>{r['cntct_TRNPP::zz__Display_Contact__ct']}</td><td>{r['cntct_TRNPP::Type of Program']}</td><td>{r['cntct_TRNPP::Start Date']}</td><td>{r['cntct_TRNPP::Status']}</td></tr>)}</tbody>
+      </table></div>
+    );
+    if (section.id === 'oe_training') return (
+      <div className="ct-table-wrap"><table className="ct-table"><thead><tr><th>Course #</th><th>Course Name</th><th>Organization</th><th>Start</th><th>End</th></tr></thead>
+        <tbody>{p['Portal__Orders'].map((r, i) => <tr key={i}><td className="mono">{r['cntct_WKSRG::Course Number']}</td><td>{r['cntct_WKSRG::Course Name']}</td><td>{r['cntct_WKSRG::zz__Display_Organization__ct']}</td><td>{r['cntct_WKSRG::Start Date']}</td><td>{r['cntct_WKSRG::End Date']}</td></tr>)}</tbody>
+      </table></div>
+    );
+    if (section.id === 'ccs') return (
+      <div className="ct-table-wrap"><table className="ct-table"><thead><tr><th>ID</th><th>Status</th><th>Organization</th><th>Type</th><th>Start</th></tr></thead>
+        <tbody>{p['Portal__Orders 2'].map((r, i) => <tr key={i}><td className="mono">{r['cntct_RCD::_kpt__RCD_ID']}</td><td>{r['cntct_RCD::Status']}</td><td>{r['cntct_RCD::zz__Display_Organization__ct']}</td><td>{r['cntct_RCD::zz__TypeOfProjectList__ct']}</td><td>{r['cntct_RCD::rcd start date']}</td></tr>)}</tbody>
+      </table></div>
+    );
+    if (section.id === 'certifications') return (
+      <div className="ct-table-wrap"><table className="ct-table"><thead><tr><th>Certificate Dates</th></tr></thead>
+        <tbody>{p.Portal__Projects.map((r, i) => <tr key={i}><td>{r['cntct_CTFC::CertificateDates']}</td></tr>)}</tbody>
+      </table></div>
+    );
+    if (section.id === 'rmi') return (
+      <div className="ct-table-wrap"><table className="ct-table"><thead><tr><th>Entry Date</th><th>Risk Level</th><th>Concern</th><th>Assigned To</th><th>Status</th></tr></thead>
+        <tbody>{p['Portal__Estimates 3'].map((r, i) => <tr key={i}><td>{r['cntct_RMI::Entry_Date']}</td><td>{r['cntct_RMI::Level_of_Risk']}</td><td>{r['cntct_RMI::Level_of_Concern']}</td><td>{r['cntct_RMI::Assigned_To']}</td><td>{r['cntct_RMI::Status']}</td></tr>)}</tbody>
       </table></div>
     );
     if (section.id === 'estimates') return (
