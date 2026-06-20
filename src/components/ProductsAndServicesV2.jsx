@@ -483,7 +483,7 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
         </div>
 
         {error ? (
-          <div style={{ padding: '16px', color: '#f87171', fontSize: 13 }}><strong>Failed to connect</strong><br />{error}</div>
+          <div style={{ padding: '16px', color: '#f87171', fontSize: 14 }}><strong>Failed to connect</strong><br />{error}</div>
         ) : loading ? (
           <div className="v2-loading">{[...Array(8)].map((_, i) => <div key={i} className="v2-skeleton" />)}</div>
         ) : (

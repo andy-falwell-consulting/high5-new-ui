@@ -7,7 +7,7 @@
   min-height: 0;
   background: #0f1117;
   font-family: 'Source Sans 3', 'Myriad Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   color: #e2e8f0;
   overflow: hidden;
 }
@@ -54,13 +54,13 @@
 }
 
 .v2-sidebar-module {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #f1f5f9;
 }
 
 .v2-sidebar-count {
-  font-size: 12px;
+  font-size: 13px;
   color: #8b97aa;
   margin-top: 1px;
 }
@@ -100,7 +100,7 @@
   border: 1px solid #2a2f45;
   border-radius: 8px;
   color: #e2e8f0;
-  font-size: 13px;
+  font-size: 14px;
   outline: none;
   transition: border-color 0.15s;
 }
@@ -157,7 +157,7 @@
 .v2-list-item.active .v2-item-name { color: #e2e8f0; }
 
 .v2-item-sub {
-  font-size: 12px;
+  font-size: 13px;
   color: #79859a;
   margin-top: 1px;
   white-space: nowrap;
@@ -211,8 +211,8 @@
   color: #79859a;
   gap: 12px;
 }
-.v2-empty-icon { font-size: 53px; opacity: 0.3; }
-.v2-empty-state p { font-size: 15px; margin: 0; }
+.v2-empty-icon { font-size: 55px; opacity: 0.3; }
+.v2-empty-state p { font-size: 16px; margin: 0; }
 
 /* Spinner */
 .v2-spinner-ring {
@@ -265,7 +265,7 @@
 }
 
 .v2-img-replace-btn {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   padding: 3px 10px;
   border-radius: 6px;
@@ -285,7 +285,7 @@
 .v2-title {
   margin: 0 0 6px;
   font-family: 'Oswald', sans-serif;
-  font-size: 24px;
+  font-size: 25px;
   font-weight: 600;
   color: #f1f5f9;
   letter-spacing: 0.02em;
@@ -301,7 +301,7 @@
 }
 
 .v2-cat-chip {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 20px;
@@ -310,7 +310,7 @@
 }
 
 .v2-type-chip {
-  font-size: 12px;
+  font-size: 13px;
   background: #1e2130;
   color: #94a3b8;
   padding: 2px 8px;
@@ -319,13 +319,13 @@
 }
 
 .v2-sku {
-  font-size: 12px;
+  font-size: 13px;
   color: #79859a;
   font-family: 'SF Mono', 'Fira Mono', monospace;
 }
 
 .v2-price-badge {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: #e8322a;
   background: #e8322a11;
@@ -361,7 +361,7 @@
 }
 .v2-btn.ghost:hover { background: #252a3d; color: #e2e8f0; border-color: #3a4060; }
 .v2-btn.ghost.active { background: #252a3d; color: #f47c76; border-color: #e8322a44; }
-.v2-btn.ghost.sm { font-size: 12px; padding: 5px 10px; }
+.v2-btn.ghost.sm { font-size: 13px; padding: 5px 10px; }
 
 .v2-btn.save {
   background: linear-gradient(135deg, #e8322a, #c52020);
@@ -372,7 +372,7 @@
 .v2-btn.save:disabled { opacity: 0.4; cursor: default; transform: none; }
 
 .v2-status {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 6px;
@@ -387,7 +387,7 @@
   background: #1e2130;
   border: 1px solid #e8322a33;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: #f47c76;
   margin-top: 16px;
 }
@@ -418,7 +418,7 @@
 }
 
 .v2-section-icon {
-  font-size: 15px;
+  font-size: 16px;
   color: #e8322a;
   opacity: 0.8;
   width: 18px;
@@ -427,7 +427,7 @@
 
 .v2-section h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -461,7 +461,7 @@
 .v2-field.layout-edit:hover { background: #171a28; }
 
 .v2-field label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -469,14 +469,14 @@
 }
 
 .v2-value {
-  font-size: 14px;
+  font-size: 15px;
   color: #cbd5e1;
   line-height: 1.4;
 }
 .v2-value.mono { font-family: 'SF Mono', 'Fira Mono', monospace; color: #86efac; }
 
 .v2-text-block {
-  font-size: 14px;
+  font-size: 15px;
   color: #94a3b8;
   line-height: 1.6;
   margin: 0;
@@ -500,15 +500,15 @@
   margin-top: 4px;
 }
 .v2-source-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: #79859a;
 }
-.v2-source-name { font-size: 14px; color: #cbd5e1; }
+.v2-source-name { font-size: 15px; color: #cbd5e1; }
 .v2-source-url, .v2-link {
-  font-size: 12px;
+  font-size: 13px;
   color: #60a5fa;
   word-break: break-all;
   text-decoration: none;
@@ -532,7 +532,7 @@
   border: 1px solid #2a2f45;
   border-radius: 6px;
   color: #e2e8f0;
-  font-size: 14px;
+  font-size: 15px;
   padding: 6px 8px;
   width: 100%;
   outline: none;
@@ -551,7 +551,7 @@
   border: 1px solid #2a2f45;
   border-radius: 6px;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 15px;
   padding: 8px 10px;
   width: 100%;
   resize: vertical;
@@ -574,14 +574,14 @@
 .v2-drag-handle, .v2-field-handle {
   cursor: grab;
   color: #79859a;
-  font-size: 15px;
+  font-size: 16px;
   padding: 2px 4px;
   border-radius: 4px;
   transition: color 0.1s, background 0.1s;
   user-select: none;
 }
 .v2-drag-handle:hover, .v2-field-handle:hover { color: #e8322a; background: #e8322a11; }
-.v2-field-handle { font-size: 13px; }
+.v2-field-handle { font-size: 14px; }
 
 /* ── Table (BOM) ───────────────────────────────────────────────── */
 .v2-table-wrap { overflow-x: auto; padding: 0 0 4px; }
@@ -595,7 +595,7 @@
 .v2-table th {
   padding: 10px 16px;
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -622,7 +622,7 @@
 
 /* ── Footer ────────────────────────────────────────────────────── */
 .v2-record-footer {
-  font-size: 11px;
+  font-size: 12px;
   color: #1e2130;
   text-align: right;
   padding: 0 28px 20px;
@@ -634,7 +634,7 @@
   margin: 0;
   color: #79859a;
   font-style: italic;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* BOM footer */
@@ -649,7 +649,7 @@
   border: 1px dashed #3a4060;
   border-radius: 6px;
   color: #e8322a;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -672,7 +672,7 @@
   border-top: 1px solid #1e2130;
   padding: 7px 16px;
   color: #8b97aa;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -687,7 +687,7 @@
 .v2-filter-badge {
   background: #e8322a;
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   border-radius: 10px;
   padding: 1px 5px;
@@ -709,7 +709,7 @@
 }
 
 .v2-filter-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -724,7 +724,7 @@
   border: 1px solid #2a2f45;
   border-radius: 6px;
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 13px;
   padding: 4px 6px;
   outline: none;
   cursor: pointer;
@@ -737,7 +737,7 @@
   background: none;
   border: none;
   color: #e8322a;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   padding: 2px 0;
   font-family: inherit;

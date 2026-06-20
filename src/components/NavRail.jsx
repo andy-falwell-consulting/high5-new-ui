@@ -114,18 +114,18 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
           <span style={{
             width: 30, height: 30, borderRadius: 7, background: '#1a1a1a', color: '#e8322a',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Oswald', sans-serif", fontSize: 14, fontWeight: 700,
+            fontFamily: "'Oswald', sans-serif", fontSize: 15, fontWeight: 700,
             border: '1px solid #333', flexShrink: 0,
           }}>H5</span>
           {showLabels && (
             <div style={{ lineHeight: 1.2, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: c.textActive }}>High5</div>
-              <div style={{ fontSize: 12, color: c.sub }}>Core database</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: c.textActive }}>High5</div>
+              <div style={{ fontSize: 13, color: c.sub }}>Core database</div>
             </div>
           )}
           {showLabels && (
             <button onClick={() => setCollapsed(true)} title="Collapse"
-              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: c.mutedLabel, fontSize: 15, lineHeight: 1, padding: 2 }}>«</button>
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: c.mutedLabel, fontSize: 16, lineHeight: 1, padding: 2 }}>«</button>
           )}
         </div>
 
@@ -134,9 +134,9 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
           {showLabels ? (
             <button onClick={onOpenPalette} title="Search (⌘K)"
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 9px', background: c.footerBtn, border: `1px solid ${c.footerBorder}`, borderRadius: 8, cursor: 'pointer', color: c.mutedLabel }}>
-              <span style={{ fontSize: 15 }}>⌕</span>
-              <span style={{ flex: 1, textAlign: 'left', fontSize: 13 }}>Search…</span>
-              <span style={{ fontFamily: 'monospace', fontSize: 11, border: `1px solid ${c.divider}`, borderRadius: 4, padding: '1px 5px' }}>⌘K</span>
+              <span style={{ fontSize: 16 }}>⌕</span>
+              <span style={{ flex: 1, textAlign: 'left', fontSize: 14 }}>Search…</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 12, border: `1px solid ${c.divider}`, borderRadius: 4, padding: '1px 5px' }}>⌘K</span>
             </button>
           ) : (
             <button onClick={onOpenPalette} title="Search (⌘K)"
@@ -148,7 +148,7 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 8px' }}>
           {!showLabels && (
             <button onClick={() => { setCollapsed(false); setWidth(w => Math.max(w, DEFAULT_WIDTH)) }} title="Expand"
-              style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '4px 0 8px', background: 'none', border: 'none', cursor: 'pointer', color: c.mutedLabel, fontSize: 15 }}>»</button>
+              style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '4px 0 8px', background: 'none', border: 'none', cursor: 'pointer', color: c.mutedLabel, fontSize: 16 }}>»</button>
           )}
           {order.map((g, gi) => (
             <div key={g} style={{ marginBottom: 6 }}>
@@ -170,10 +170,10 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, background: c.footerBtn, border: `1px solid ${isProd ? '#ef444466' : c.footerBorder}`, borderRadius: 8, padding: '6px 9px' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: envDot, flexShrink: 0 }} />
               <select value={env.id} onChange={changeEnv}
-                style={{ flex: 1, appearance: 'none', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: c.textActive, fontFamily: 'inherit' }}>
+                style={{ flex: 1, appearance: 'none', background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 500, color: c.textActive, fontFamily: 'inherit' }}>
                 {FMP_ENVIRONMENTS.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
               </select>
-              <span style={{ color: c.mutedLabel, fontSize: 12, pointerEvents: 'none' }}>⌄</span>
+              <span style={{ color: c.mutedLabel, fontSize: 13, pointerEvents: 'none' }}>⌄</span>
             </div>
           ) : (
             <span title={env.label} style={{ width: 9, height: 9, borderRadius: '50%', background: envDot }} />
@@ -183,15 +183,15 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ width: 24, height: 24, borderRadius: '50%', background: light ? '#e2e8f0' : '#1e2130', color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{userInitials}</span>
               <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-                <div style={{ fontSize: 13, color: c.textActive, overflow: 'hidden', textOverflow: 'ellipsis' }}>{user}</div>
-                <div style={{ fontSize: 11, color: c.sub }}>v{__APP_VERSION__}</div>
+                <div style={{ fontSize: 14, color: c.textActive, overflow: 'hidden', textOverflow: 'ellipsis' }}>{user}</div>
+                <div style={{ fontSize: 12, color: c.sub }}>v{__APP_VERSION__}</div>
               </div>
               <button onClick={onToggleTheme} title={light ? 'Dark mode' : 'Light mode'}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 3, opacity: 0.75 }}>{light ? '🌙' : '☀️'}</button>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 3, opacity: 0.75 }}>{light ? '🌙' : '☀️'}</button>
             </div>
           ) : (
             <button onClick={onToggleTheme} title={light ? 'Dark mode' : 'Light mode'}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 3, opacity: 0.75 }}>{light ? '🌙' : '☀️'}</button>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 3, opacity: 0.75 }}>{light ? '🌙' : '☀️'}</button>
           )}
         </div>
       </div>
