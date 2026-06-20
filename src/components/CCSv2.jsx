@@ -229,7 +229,15 @@ export default function CCSv2({ navTarget, onNavigateTo, onClearNav }) {
     if (navTarget?.moduleId !== 'ccs-v2' || !navTarget.recordId) return;
     const record = records.find(r => String(r.recordId) === String(navTarget.recordId));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link selection
-    if (record) { handleSelect(record); onClearNav?.(); }
+    if (record) { handleSelect(record); onClearNav?.(); return; }
+    // Older projects fall outside the 2-year list filter, so a deep-link / agent
+    // source pill won't find them in `records`. Fetch directly so it still opens.
+    let alive = true;
+    getRecord(LAYOUT, navTarget.recordId).then(d => {
+      const r = d?.response?.data?.[0];
+      if (alive && r) { handleSelect(r); onClearNav?.(); }
+    }).catch(() => {});
+    return () => { alive = false; };
   }, [navTarget, records]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDiscard = () => { setEdits({}); setSaveStatus(null); };
