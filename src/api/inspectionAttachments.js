@@ -85,7 +85,17 @@ export async function getFreshAttachmentUrl(recordId) {
   const res = await getRecord(PICS_LAYOUT, recordId);
   const streaming = res?.response?.data?.[0]?.fieldData?.[CONTAINER];
   if (!streaming) return null;
-  return containerImageUrl(streaming, { db: getCurrentEnv().db, layout: PICS_LAYOUT, recordId, field: CONTAINER });
+  // Open via the proxied container-streaming path in BOTH envs (Vite proxy in
+  // dev, Vercel /Streaming_SSL → /api/proxy rewrite in prod). It preserves
+  // FileMaker's real Content-Type (e.g. application/pdf) so the browser renders
+  // the file inline — unlike /api/image, which is tuned for image thumbnails and
+  // mislabels PDFs.
+  try {
+    const u = new URL(streaming);
+    return u.pathname + u.search;
+  } catch {
+    return streaming;
+  }
 }
 
 export async function deleteAttachment(recordId) {
