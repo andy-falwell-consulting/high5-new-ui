@@ -1,6 +1,17 @@
+import { Redis } from '@upstash/redis';
+
+const redis = Redis.fromEnv();
+
+// Prefer the OAuth token stored in Redis (set by /api/shopify-callback); fall
+// back to the static SHOPIFY_TOKEN env var.
+async function resolveToken() {
+  try { const t = await redis.get('shopify_token'); if (t) return { token: t, source: 'oauth' }; } catch { /* redis unavailable */ }
+  return { token: process.env.SHOPIFY_TOKEN || null, source: process.env.SHOPIFY_TOKEN ? 'env' : null };
+}
+
 export default async function handler(req, res) {
   const store = process.env.SHOPIFY_STORE;
-  const token = process.env.SHOPIFY_TOKEN;
+  const { token, source: tokenSource } = await resolveToken();
 
   // Read-only health check — safe to open in a browser at /api/shopify.
   // Reports whether the env vars are set and whether an authenticated Shopify
@@ -9,6 +20,7 @@ export default async function handler(req, res) {
     const out = {
       configured: !!(store && token),
       store: store || null,
+      tokenSource,
       tokenPrefix: token ? token.slice(0, 6) + '…' : null,
       tokenLength: token ? token.length : 0,
     };

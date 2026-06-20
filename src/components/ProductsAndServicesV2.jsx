@@ -7,6 +7,7 @@ import NewItemModal from './NewItemModal';
 import ImageLightbox from './ImageLightbox';
 import { pushToShopify, pushToQBO } from '../api/integrations';
 import { useAllRecords } from '../hooks/useAllRecords';
+import ShopifyConnect from './ShopifyConnect';
 import './ProductsAndServicesV2.css';
 
 const LAYOUT = 'Products & Services_New';
@@ -398,6 +399,7 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
             </div>
           </div>
           <button className="v2-btn ghost sm" onClick={() => setShowNewItem(true)} style={{ marginBottom: 8 }}>+ New</button>
+          <ShopifyConnect />
           <ListToolbar c={list} unit="items" />
           <button className="v2-filter-toggle" onClick={() => setShowFilters(s => !s)} style={{ marginTop: 8 }}>
             <span>Filters</span>
