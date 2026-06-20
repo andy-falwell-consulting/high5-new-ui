@@ -1,6 +1,6 @@
 // Attachments for an inspection — stored as files in the related Inspections_Pics
 // container table (FK = ID = the inspection's _kpt__Inspection_ID).
-import { findInLayout, createRecord, deleteRecord, uploadContainer, containerImageUrl, getRecordWithPortals } from './filemaker';
+import { findInLayout, createRecord, deleteRecord, uploadContainer, containerImageUrl, getRecordWithPortals, getRecord, invalidateRecord } from './filemaker';
 import { getCurrentEnv } from '../config/fmpEnvironments';
 import { generateInspectionReport, inspectionMeta } from './inspectionReport';
 
@@ -73,6 +73,19 @@ export async function uploadAttachment(inspectionId, file, filename) {
     throw new Error(up?.messages?.[0]?.message || 'Upload failed');
   }
   return optimisticCard(recordId, file, name);
+}
+
+// FileMaker container streaming URLs are minted per session and expire, so a URL
+// captured when the list loaded can later go stale. Re-fetch the record at click
+// time for a guaranteed-fresh, working URL — keeps attachments openable and
+// downloadable indefinitely. (In prod containerImageUrl resolves to the stable
+// /api/image endpoint, which is already durable; this keeps both envs correct.)
+export async function getFreshAttachmentUrl(recordId) {
+  invalidateRecord(PICS_LAYOUT, recordId); // bypass the detail cache
+  const res = await getRecord(PICS_LAYOUT, recordId);
+  const streaming = res?.response?.data?.[0]?.fieldData?.[CONTAINER];
+  if (!streaming) return null;
+  return containerImageUrl(streaming, { db: getCurrentEnv().db, layout: PICS_LAYOUT, recordId, field: CONTAINER });
 }
 
 export async function deleteAttachment(recordId) {

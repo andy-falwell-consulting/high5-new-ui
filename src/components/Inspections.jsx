@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { getRecord, prefetchRecord, updateRecord, invalidateRecord, patchCachedRecord } from '../api/filemaker';
 import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
-import { listAttachments, uploadAttachment, deleteAttachment, generateAndAttachReport, downloadReport } from '../api/inspectionAttachments';
+import { listAttachments, uploadAttachment, deleteAttachment, generateAndAttachReport, downloadReport, getFreshAttachmentUrl } from '../api/inspectionAttachments';
 import './Inspections.css';
 
 const LAYOUT = 'Inspections_New';
@@ -208,6 +208,23 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
       }
     } catch (e) { setAttError(e.message || 'Upload failed'); }
     finally { setAttBusy(null); }
+  }
+  // Open an attachment. The just-generated card holds an in-memory blob URL that
+  // opens instantly; any other card re-fetches a fresh container URL at click
+  // time so the file stays openable/downloadable forever (FMP URLs expire).
+  async function handleOpenAttachment(a) {
+    setAttError(null);
+    if (a.url && a.url.startsWith('blob:')) { window.open(a.url, '_blank', 'noopener'); return; }
+    const w = window.open('', '_blank'); // open synchronously to dodge popup blockers
+    try {
+      const fresh = await getFreshAttachmentUrl(a.recordId);
+      if (!fresh) throw new Error('File is no longer available');
+      const abs = fresh.startsWith('http') ? fresh : window.location.origin + fresh;
+      if (w) w.location.href = abs; else window.open(abs, '_blank', 'noopener');
+    } catch (e) {
+      if (w) w.close();
+      setAttError(e.message || 'Could not open file');
+    }
   }
   async function handleDeleteAtt(recordId) {
     setAttBusy(recordId); setAttError(null);
@@ -471,8 +488,7 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
                           <a
                             className="insp-att-thumb"
                             href={a.url || undefined}
-                            target="_blank"
-                            rel="noreferrer"
+                            onClick={e => { e.preventDefault(); if (a.hasFile) handleOpenAttachment(a); }}
                             title={a.hasFile ? 'Open' : 'No file'}
                           >
                             {a.isImage && a.url
@@ -480,7 +496,7 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
                               : <span className="insp-att-ext">{(a.name.split('.').pop() || '?').toUpperCase()}</span>}
                           </a>
                           <div className="insp-att-meta">
-                            <a className="insp-att-name" href={a.url || undefined} target="_blank" rel="noreferrer" title={a.name}>{a.name}</a>
+                            <a className="insp-att-name" href={a.url || undefined} onClick={e => { e.preventDefault(); if (a.hasFile) handleOpenAttachment(a); }} title={a.name}>{a.name}</a>
                             <span className="insp-att-sub">{a.created ? a.created.split(' ')[0] : 'Just now'}{a.by ? ` · ${a.by}` : ''}</span>
                           </div>
                           <button
