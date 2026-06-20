@@ -1,9 +1,32 @@
 export default async function handler(req, res) {
+  const store = process.env.SHOPIFY_STORE;
+  const token = process.env.SHOPIFY_TOKEN;
+
+  // Read-only health check — safe to open in a browser at /api/shopify.
+  // Reports whether the env vars are set and whether an authenticated Shopify
+  // call actually succeeds (so we can tell config vs token vs scope problems apart).
+  if (req.method === 'GET') {
+    const out = {
+      configured: !!(store && token),
+      store: store || null,
+      tokenPrefix: token ? token.slice(0, 6) + '…' : null,
+      tokenLength: token ? token.length : 0,
+    };
+    if (out.configured) {
+      try {
+        const r = await fetch(`https://${store}/admin/api/2025-10/shop.json`, { headers: { 'X-Shopify-Access-Token': token } });
+        out.shopHttpStatus = r.status;
+        out.ok = r.ok;
+        if (r.ok) { out.shopName = (await r.json())?.shop?.name || null; }
+        else { out.shopError = (await r.text()).slice(0, 400); }
+      } catch (e) { out.ok = false; out.shopError = String(e?.message || e); }
+    }
+    return res.status(200).json(out);
+  }
+
   if (req.method !== 'POST') return res.status(405).end();
 
   const { action, productId, product } = req.body;
-  const store = process.env.SHOPIFY_STORE;
-  const token = process.env.SHOPIFY_TOKEN;
 
   if (!store || !token) return res.status(500).json({ error: 'Shopify not configured' });
   if (action === 'debug') return res.status(200).json({ store, tokenPrefix: token.slice(0, 8) + '...' });
