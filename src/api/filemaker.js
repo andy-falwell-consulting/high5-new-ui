@@ -77,6 +77,12 @@ const MEM_TTL_MS = 5 * 60 * 1000;
 const IDB_TTL_MS = 24 * 60 * 60 * 1000;
 const memCache = {};
 
+// When true, a present (even stale) cache is displayed as-is and NOT bulk-
+// refreshed in the background — individual records refresh on hover/click
+// instead (see getRecord). This keeps the all-records fetch from starving
+// interactive calls. Flip to false to restore eager background refresh.
+const LAZY_REFRESH = true;
+
 function idbKey(layout, cacheVersion) {
   return cacheVersion ? `fmp_cache__${layout}__v${cacheVersion}` : `fmp_cache__${layout}`;
 }
@@ -194,6 +200,29 @@ export function patchCachedRecord(layout, cacheVersion, recordId, fieldData) {
   }
 }
 
+// Patch a record into every cached version of a layout and notify subscribers.
+// Lets a fresh single-record fetch (hover/click) update the displayed list row
+// without the caller needing to know its cacheVersion.
+function patchCachedRecordAcrossVersions(layout, recordId, fieldData) {
+  const rid = String(recordId);
+  const prefix = `${layout}__v`;
+  for (const mk of Object.keys(memCache)) {
+    if (mk !== layout && !mk.startsWith(prefix)) continue;
+    const entry = memCache[mk];
+    if (!entry?.records) continue;
+    let changed = false;
+    entry.records = entry.records.map(r => {
+      if (String(r.recordId) !== rid) return r;
+      changed = true;
+      return { ...r, fieldData: { ...r.fieldData, ...fieldData } };
+    });
+    if (!changed) continue;
+    idbSet(`fmp_cache__${mk}`, { ...entry }).catch(() => {});
+    const subs = cacheSubscribers.get(mk);
+    if (subs?.size) subs.forEach(cb => cb(entry.records, entry.total));
+  }
+}
+
 // Build an image URL for a container field.
 // In dev: use the Vite-proxied Streaming_SSL URL directly.
 // In prod: route through /api/image which authenticates server-side.
@@ -264,7 +293,9 @@ export async function getAllRecords(layout, { onProgress, batchSize = 100, slimF
 
   if (cached) {
     if (onProgress) onProgress({ records: cached.records, total: cached.total, done: true });
-    fetchAllFromServer(layout, { batchSize, cacheVersion, findQuery, sort }).catch(() => {});
+    // Lazy mode: show the cache and let hover/click refresh individual records,
+    // rather than re-fetching everything (which starves interactive calls).
+    if (!LAZY_REFRESH) fetchAllFromServer(layout, { batchSize, cacheVersion, findQuery, sort }).catch(() => {});
     return cached;
   }
 
@@ -282,7 +313,13 @@ export async function getRecord(layout, recordId) {
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  const promise = res.json();
+  // Refresh the matching list row from this fresh fetch (hover/click), so the
+  // displayed list reflects current data even though we don't bulk-refresh.
+  const promise = res.json().then(data => {
+    const rec = data?.response?.data?.[0];
+    if (rec) patchCachedRecordAcrossVersions(layout, recordId, rec.fieldData);
+    return data;
+  });
   detailCache.set(key, promise);
   return promise;
 }
