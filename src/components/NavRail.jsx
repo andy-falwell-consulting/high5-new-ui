@@ -25,12 +25,12 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
 
   // Theme tokens
   const c = light ? {
-    bg: '#f4f6f8', border: '#e2e8f0', text: '#64748b', textActive: '#0f172a',
-    activeBg: '#ffffff', divider: '#e2e8f0', mutedLabel: '#94a3b8', sub: '#94a3b8',
+    bg: '#f4f6f8', border: '#e2e8f0', text: '#4f5a69', textActive: '#0f172a',
+    activeBg: '#ffffff', divider: '#e2e8f0', mutedLabel: '#5e6b7c', sub: '#5e6b7c',
     footerBtn: '#ffffff', footerBorder: '#e2e8f0',
   } : {
-    bg: '#0b0d14', border: '#1e2130', text: '#64748b', textActive: '#e2e8f0',
-    activeBg: '#161926', divider: '#1e2130', mutedLabel: '#475569', sub: '#475569',
+    bg: '#0b0d14', border: '#1e2130', text: '#8b97aa', textActive: '#e2e8f0',
+    activeBg: '#161926', divider: '#1e2130', mutedLabel: '#79859a', sub: '#79859a',
     footerBtn: '#13151c', footerBorder: '#1e2130',
   }
 

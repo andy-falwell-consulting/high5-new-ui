@@ -7,8 +7,8 @@
   --cv2-border-2: #2a2f45;
   --cv2-text: #e2e8f0;
   --cv2-text-2: #94a3b8;
-  --cv2-text-3: #64748b;
-  --cv2-text-4: #475569;
+  --cv2-text-3: #8b97aa;
+  --cv2-text-4: #79859a;
   --cv2-ring-track: #262b3d;
   --cv2-line: #2a2f45;
   --cv2-accent: #e8322a;
@@ -21,7 +21,7 @@
 [data-theme="light"] .cv2-root {
   --cv2-bg: #f6f7f9; --cv2-surface: #ffffff; --cv2-surface-2: #f1f5f9;
   --cv2-border: #e6e8ec; --cv2-border-2: #d8dce2;
-  --cv2-text: #0f172a; --cv2-text-2: #475569; --cv2-text-3: #64748b; --cv2-text-4: #94a3b8;
+  --cv2-text: #0f172a; --cv2-text-2: #475569; --cv2-text-3: #4f5a69; --cv2-text-4: #5e6b7c;
   --cv2-ring-track: #e6e8ec; --cv2-line: #e0e3e8;
 }
 

@@ -11,7 +11,7 @@
   border-right-color: #e2e8f0 !important;
 }
 [data-theme="light"] .nav-rail button {
-  color: #64748b !important;
+  color: #4f5a69 !important;
 }
 [data-theme="light"] .nav-rail button.active,
 [data-theme="light"] .nav-rail .nav-item-active {
@@ -39,7 +39,7 @@
   border-bottom-color: #e2e8f0;
 }
 [data-theme="light"] .v2-sidebar-module { color: #0f172a; }
-[data-theme="light"] .v2-sidebar-count { color: #94a3b8; }
+[data-theme="light"] .v2-sidebar-count { color: #5e6b7c; }
 
 /* Search */
 [data-theme="light"] .v2-search {
@@ -47,8 +47,8 @@
   border-color: #e2e8f0;
   color: #0f172a;
 }
-[data-theme="light"] .v2-search::placeholder { color: #94a3b8; }
-[data-theme="light"] .v2-search-icon { color: #94a3b8; }
+[data-theme="light"] .v2-search::placeholder { color: #5e6b7c; }
+[data-theme="light"] .v2-search-icon { color: #5e6b7c; }
 
 /* Progress bar */
 [data-theme="light"] .v2-progress-bar { background: #e2e8f0; }
@@ -58,7 +58,7 @@
 [data-theme="light"] .v2-list-item.active { background: #fff1f0; }
 [data-theme="light"] .v2-item-name { color: #334155; }
 [data-theme="light"] .v2-list-item.active .v2-item-name { color: #0f172a; }
-[data-theme="light"] .v2-item-sub { color: #94a3b8; }
+[data-theme="light"] .v2-item-sub { color: #5e6b7c; }
 [data-theme="light"] .v2-list::-webkit-scrollbar-thumb { background: #cbd5e1; }
 
 /* Skeleton */
@@ -92,15 +92,15 @@
 [data-theme="light"] .v2-title { color: #0f172a; }
 [data-theme="light"] .v2-type-chip {
   background: #f1f5f9;
-  color: #64748b;
+  color: #4f5a69;
   border-color: #e2e8f0;
 }
-[data-theme="light"] .v2-sku { color: #94a3b8; }
+[data-theme="light"] .v2-sku { color: #5e6b7c; }
 
 /* Buttons */
 [data-theme="light"] .v2-btn.ghost {
   background: #f1f5f9;
-  color: #64748b;
+  color: #4f5a69;
   border-color: #e2e8f0;
 }
 [data-theme="light"] .v2-btn.ghost:hover {
@@ -127,7 +127,7 @@
 }
 [data-theme="light"] .v2-section:hover { border-color: #cbd5e1; }
 [data-theme="light"] .v2-section-header { border-bottom-color: #e2e8f0; }
-[data-theme="light"] .v2-section h3 { color: #94a3b8; }
+[data-theme="light"] .v2-section h3 { color: #5e6b7c; }
 
 /* Field grid */
 [data-theme="light"] .v2-field-grid { background: #f1f5f9; }
@@ -136,10 +136,10 @@
 [data-theme="light"] .v2-field.dirty { background: #fffbeb; }
 [data-theme="light"] .v2-field.layout-edit { background: #f0f4ff; }
 [data-theme="light"] .v2-field.layout-edit:hover { background: #fff1f0; }
-[data-theme="light"] .v2-field label { color: #94a3b8; }
+[data-theme="light"] .v2-field label { color: #5e6b7c; }
 [data-theme="light"] .v2-value { color: #334155; }
 [data-theme="light"] .v2-value.mono { color: #059669; }
-[data-theme="light"] .v2-text-block { color: #64748b; }
+[data-theme="light"] .v2-text-block { color: #4f5a69; }
 
 /* Inputs */
 [data-theme="light"] .v2-input,
@@ -156,11 +156,11 @@
 
 /* Table */
 [data-theme="light"] .v2-table th {
-  color: #94a3b8;
+  color: #5e6b7c;
   border-bottom-color: #e2e8f0;
 }
 [data-theme="light"] .v2-table td {
-  color: #64748b;
+  color: #4f5a69;
   border-bottom-color: #f1f5f9;
 }
 [data-theme="light"] .v2-table td.num { color: #059669; }
@@ -183,12 +183,22 @@
 
 /* Formatted text */
 [data-theme="light"] .v2-para { color: #334155; }
-[data-theme="light"] .v2-bullet-dot { color: #94a3b8; }
+[data-theme="light"] .v2-bullet-dot { color: #5e6b7c; }
 [data-theme="light"] .v2-source-block {
   background: #f1f5f9;
   border-color: #e2e8f0;
 }
-[data-theme="light"] .v2-source-label { color: #94a3b8; }
+[data-theme="light"] .v2-source-label { color: #5e6b7c; }
 [data-theme="light"] .v2-source-name { color: #334155; }
 [data-theme="light"] .v2-source-url,
 [data-theme="light"] .v2-link { color: #2563eb; }
+
+/* Mono "value" accents (IDs, totals) — darken green for readability on white */
+[data-theme="light"] .ct-value.mono,
+[data-theme="light"] .ct-table td.mono,
+[data-theme="light"] .v2-value.mono,
+[data-theme="light"] .v2-input.mono,
+[data-theme="light"] .v2-table td.num,
+[data-theme="light"] .sl-value.mono,
+[data-theme="light"] .sl-input.mono,
+[data-theme="light"] .bom-price-row strong { color: #15803d; }

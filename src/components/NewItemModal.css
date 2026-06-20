@@ -38,7 +38,7 @@
   letter-spacing: 0.04em;
 }
 .nim-close {
-  background: none; border: none; color: #475569; font-size: 16px;
+  background: none; border: none; color: #79859a; font-size: 16px;
   cursor: pointer; padding: 4px 8px; border-radius: 4px;
 }
 .nim-close:hover { background: #1e2130; color: #e2e8f0; }
@@ -67,7 +67,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #475569;
+  color: #79859a;
 }
 
 .nim-grid {
@@ -82,7 +82,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: 11px;
-  color: #64748b;
+  color: #8b97aa;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -92,7 +92,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: 11px;
-  color: #64748b;
+  color: #8b97aa;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -152,7 +152,7 @@
 [data-theme="light"] .nim-drawer { background: #ffffff; border-left-color: #e2e8f0; }
 [data-theme="light"] .nim-header { border-bottom-color: #e2e8f0; }
 [data-theme="light"] .nim-header h2 { color: #0f172a; }
-[data-theme="light"] .nim-close { color: #94a3b8; }
+[data-theme="light"] .nim-close { color: #5e6b7c; }
 [data-theme="light"] .nim-close:hover { background: #f1f5f9; color: #0f172a; }
 [data-theme="light"] .nim-section { background: #f8fafc; border-color: #e2e8f0; }
 [data-theme="light"] .nim-grid input, [data-theme="light"] .nim-grid select,
@@ -160,7 +160,7 @@
 [data-theme="light"] .nim-wide select {
   background: #ffffff; border-color: #e2e8f0; color: #0f172a;
 }
-[data-theme="light"] .nim-toggle { color: #64748b; }
+[data-theme="light"] .nim-toggle { color: #4f5a69; }
 [data-theme="light"] .nim-toggle strong { color: #0f172a; }
 [data-theme="light"] .nim-footer { border-top-color: #e2e8f0; }
-[data-theme="light"] .nim-btn.cancel { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+[data-theme="light"] .nim-btn.cancel { background: #f1f5f9; color: #4f5a69; border-color: #e2e8f0; }

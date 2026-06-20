@@ -6,7 +6,7 @@
 
 .cl-trigger {
   font-size: 13px;
-  color: #475569;
+  color: #79859a;
   cursor: default;
   user-select: none;
   line-height: 1;
@@ -30,7 +30,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #475569;
+  color: #79859a;
   margin-bottom: 8px;
 }
 
@@ -60,5 +60,5 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 [data-theme="light"] .cl-label { color: #334155; }
-[data-theme="light"] .cl-trigger { color: #94a3b8; }
+[data-theme="light"] .cl-trigger { color: #5e6b7c; }
 [data-theme="light"] .cl-trigger:hover { color: #e8322a; }
