@@ -130,7 +130,8 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
   const [saveStatus, setSaveStatus] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [attLoading, setAttLoading] = useState(false);
-  const [attBusy, setAttBusy] = useState(null); // 'upload' | 'report' | recordId being deleted
+  const [attBusy, setAttBusy] = useState(null); // 'upload' | 'report-attach' | 'report-download' | recordId being deleted
+  const [attStage, setAttStage] = useState(null); // progress label while a report runs
   const [attError, setAttError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const isResizing = useRef(false);
@@ -196,14 +197,15 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
     return () => { alive = false; };
   }, [inspId]);
 
-  const refreshAttachments = () => { if (inspId) listAttachments(inspId).then(setAttachments).catch(() => {}); };
-
   async function handleFiles(files) {
     if (!inspId || !files?.length) return;
     setAttBusy('upload'); setAttError(null);
     try {
-      for (const file of files) await uploadAttachment(inspId, file);
-      refreshAttachments();
+      // Prepend each uploaded file as it lands, so the grid fills in live.
+      for (const file of files) {
+        const card = await uploadAttachment(inspId, file);
+        setAttachments(a => [card, ...a]);
+      }
     } catch (e) { setAttError(e.message || 'Upload failed'); }
     finally { setAttBusy(null); }
   }
@@ -215,12 +217,17 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
   }
   async function handleGenerateReport(attach) {
     if (!selected) return;
-    setAttBusy('report'); setAttError(null);
+    setAttBusy(attach ? 'report-attach' : 'report-download');
+    setAttStage('Building PDF…'); setAttError(null);
     try {
-      if (attach) { await generateAndAttachReport(selected); refreshAttachments(); }
-      else { await downloadReport(selected); }
+      if (attach) {
+        const card = await generateAndAttachReport(selected, setAttStage);
+        setAttachments(a => [card, ...a]); // optimistic — no re-list round-trip
+      } else {
+        await downloadReport(selected, setAttStage);
+      }
     } catch (e) { setAttError(e.message || 'Report failed'); }
-    finally { setAttBusy(null); }
+    finally { setAttBusy(null); setAttStage(null); }
   }
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
@@ -417,17 +424,17 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
                 <div className="insp-att-actions">
                   <button
                     className="insp-att-btn primary"
-                    disabled={attBusy === 'report'}
+                    disabled={attBusy === 'report-attach' || attBusy === 'report-download'}
                     onClick={() => handleGenerateReport(true)}
                   >
-                    {attBusy === 'report' ? 'Generating…' : '＋ Generate report & attach'}
+                    {attBusy === 'report-attach' ? (attStage || 'Working…') : '＋ Generate report & attach'}
                   </button>
                   <button
                     className="insp-att-btn"
-                    disabled={attBusy === 'report'}
+                    disabled={attBusy === 'report-attach' || attBusy === 'report-download'}
                     onClick={() => handleGenerateReport(false)}
                   >
-                    ⤓ Download report
+                    {attBusy === 'report-download' ? (attStage || 'Working…') : '⤓ Download report'}
                   </button>
                   <button
                     className="insp-att-btn"
@@ -474,7 +481,7 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
                           </a>
                           <div className="insp-att-meta">
                             <a className="insp-att-name" href={a.url || undefined} target="_blank" rel="noreferrer" title={a.name}>{a.name}</a>
-                            <span className="insp-att-sub">{a.created?.split(' ')[0]}{a.by ? ` · ${a.by}` : ''}</span>
+                            <span className="insp-att-sub">{a.created ? a.created.split(' ')[0] : 'Just now'}{a.by ? ` · ${a.by}` : ''}</span>
                           </div>
                           <button
                             className="insp-att-del"

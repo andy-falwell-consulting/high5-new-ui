@@ -22,6 +22,22 @@ async function fullRecord(record) {
 const extOf = name => (name || '').split('.').pop().toLowerCase();
 const isImage = name => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'bmp', 'tif', 'tiff'].includes(extOf(name));
 
+// Build a card for a just-uploaded file so the grid can show it immediately,
+// without waiting on a re-list round-trip. The view link points at a local
+// object URL (the bytes we just uploaded); a later reload swaps in the real
+// FileMaker streaming URL and authoritative timestamp/author.
+function optimisticCard(recordId, fileOrBlob, name) {
+  return {
+    recordId,
+    name,
+    created: '',
+    by: '',
+    isImage: isImage(name),
+    hasFile: true,
+    url: URL.createObjectURL(fileOrBlob),
+  };
+}
+
 // List attachments for an inspection (by its _kpt__Inspection_ID).
 export async function listAttachments(inspectionId) {
   if (!inspectionId) return [];
@@ -56,7 +72,7 @@ export async function uploadAttachment(inspectionId, file, filename) {
     deleteRecord(PICS_LAYOUT, recordId).catch(() => {});
     throw new Error(up?.messages?.[0]?.message || 'Upload failed');
   }
-  return recordId;
+  return optimisticCard(recordId, file, name);
 }
 
 export async function deleteAttachment(recordId) {
@@ -64,18 +80,23 @@ export async function deleteAttachment(recordId) {
   if (res?.messages?.[0]?.code !== '0') throw new Error(res?.messages?.[0]?.message || 'Delete failed');
 }
 
-// Generate the inspection report PDF and attach it.
-export async function generateAndAttachReport(record) {
+// Generate the inspection report PDF and attach it. `onStage` reports progress
+// ('Building PDF…' → 'Uploading…') and the returned card lets the caller show
+// the new attachment immediately. The card's view link reuses the PDF we just
+// built (no extra fetch).
+export async function generateAndAttachReport(record, onStage) {
+  onStage?.('Building PDF…');
   const full = await fullRecord(record);
   const { blob, filename } = await generateInspectionReport(full);
   const file = new File([blob], filename, { type: 'application/pdf' });
   const inspectionId = full.fieldData?._kpt__Inspection_ID || record.fieldData?._kpt__Inspection_ID;
-  await uploadAttachment(inspectionId, file, filename);
-  return filename;
+  onStage?.('Uploading…');
+  return uploadAttachment(inspectionId, file, filename);
 }
 
 // Generate + download (no attach).
-export async function downloadReport(record) {
+export async function downloadReport(record, onStage) {
+  onStage?.('Building PDF…');
   const full = await fullRecord(record);
   const { blob, filename } = await generateInspectionReport(full);
   const url = URL.createObjectURL(blob);

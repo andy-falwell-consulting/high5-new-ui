@@ -21,6 +21,7 @@ function getBasePath() {
 
 let sessionToken = null;
 let _tokenEnvId = null;
+let _tokenPromise = null; // shared in-flight auth, so a burst of calls mints one token
 
 async function getToken() {
   const env = getCurrentEnv();
@@ -29,22 +30,33 @@ async function getToken() {
     sessionToken = null;
   }
   if (sessionToken) return sessionToken;
-  const res = await fetch(`${getBasePath()}/fmi/data/v2/databases/${env.db}/sessions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Basic ' + btoa(`${env.user}:${env.pass}`),
-    },
-    body: '{}',
-  });
-  const data = await res.json();
-  if (!data.response?.token) {
-    const msg = data.messages?.[0]?.message ?? `Auth failed (HTTP ${res.status})`;
-    throw new Error(`FMP [${env.db}]: ${msg}`);
+  // Coalesce concurrent callers onto a single /sessions request. Without this,
+  // a startup burst (bulk prefetch, report flow) each sees no token and creates
+  // its own FileMaker session — a dozen redundant 2-3s auth round-trips.
+  if (_tokenPromise) return _tokenPromise;
+  _tokenPromise = (async () => {
+    const res = await fetch(`${getBasePath()}/fmi/data/v2/databases/${env.db}/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Basic ' + btoa(`${env.user}:${env.pass}`),
+      },
+      body: '{}',
+    });
+    const data = await res.json();
+    if (!data.response?.token) {
+      const msg = data.messages?.[0]?.message ?? `Auth failed (HTTP ${res.status})`;
+      throw new Error(`FMP [${env.db}]: ${msg}`);
+    }
+    sessionToken = data.response.token;
+    _tokenEnvId = env.id;
+    return sessionToken;
+  })();
+  try {
+    return await _tokenPromise;
+  } finally {
+    _tokenPromise = null;
   }
-  sessionToken = data.response.token;
-  _tokenEnvId = env.id;
-  return sessionToken;
 }
 
 export async function getRecords(layout, limit = 100, offset = 1, signal) {
