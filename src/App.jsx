@@ -6,6 +6,7 @@ import Contacts from './components/Contacts'
 import Inspections from './components/Inspections'
 import ProjectsWorkspace from './components/ProjectsWorkspace'
 import CommandPalette from './components/CommandPalette'
+import AgentPanel from './components/AgentPanel'
 import { getAllRecords } from './api/filemaker'
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT } from './config/ccsCache'
 import './light-theme.css'
@@ -29,6 +30,7 @@ export default function App() {
   const [theme, setTheme] = useState(getInitialTheme)
   const [navTarget, setNavTarget] = useState(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [agentOpen, setAgentOpen] = useState(false)
 
   // Pre-warm all module caches on startup so every tab loads instantly
   useEffect(() => {
@@ -84,6 +86,8 @@ export default function App() {
         {visited.has('products') && <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
         {visited.has('projects') && <div style={{ display: activeModule === 'projects' ? 'contents' : 'none' }}><ProjectsWorkspace navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onPick={handlePalettePick} modules={MODULES} theme={theme} onToggleTheme={toggleTheme} />
+        {!agentOpen && <button className="agent-fab" onClick={() => setAgentOpen(true)} title="Ask the assistant">✦</button>}
+        <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} />
     </div>
   )
 }
