@@ -131,7 +131,33 @@ const TOOLS = [
   { name: 'get_record', description: 'Full detail for one record (incl. line items where applicable).', input_schema: { type: 'object', properties: { module: { type: 'string', enum: Object.keys(MODULES) }, recordId: { type: 'string' } }, required: ['module', 'recordId'] } },
 ];
 
-// ── Handler ────────────────────────────────────────────────────────────────
+// Human-readable status while a tool runs (streamed to the panel).
+const STATUS = { get_schema: 'Reading schema', search_records: 'Searching', get_record: 'Reading' };
+function statusFor(name, input) {
+  return `${STATUS[name] || 'Looking up'} ${input?.module || ''}…`.replace(/\s+…/, '…');
+}
+
+// Pull a human label for a record so a source chip reads nicely.
+function labelFor(module, f = {}) {
+  if (module === 'inspections') return f.Organization || f['inspt_CNTCT__site::Name_Organization'] || `Inspection ${f._kpt__Inspection_ID || ''}`.trim();
+  if (module === 'contacts') return f.zz__Display__ct || f.NameFirstLast || f.Name_Organization || 'Contact';
+  if (module === 'projects') return f.zz__Display_Organization__ct || `Project ${f._kpt__RCD_ID || ''}`.trim();
+  if (module === 'products') return f.Name || 'Product';
+  return 'Record';
+}
+
+// Records the agent actually touched become clickable sources. get_record is the
+// most precise signal; search hits are included (capped) for list-style answers.
+function collectSources(name, input, result, add) {
+  const module = input?.module;
+  if (name === 'get_record' && result?.recordId) {
+    add({ module, recordId: String(result.recordId), label: labelFor(module, result.fields) });
+  } else if (name === 'search_records' && Array.isArray(result?.records)) {
+    for (const r of result.records.slice(0, 6)) add({ module, recordId: String(r.recordId), label: labelFor(module, r) });
+  }
+}
+
+// ── Handler (Server-Sent Events) ────────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY is not set on the server.' });
@@ -142,6 +168,13 @@ export default async function handler(req, res) {
   const db = ALLOWED_DBS.includes(reqDb) ? reqDb : ALLOWED_DBS[0];
   if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: 'messages required' });
 
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+  const send = obj => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   try {
@@ -150,36 +183,37 @@ export default async function handler(req, res) {
       .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
       .map(m => ({ role: m.role, content: m.content }));
 
-    let toolCalls = [];
-    for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-      const resp = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 1500,
-        system: SYSTEM,
-        tools: TOOLS,
-        messages: convo,
-      });
+    const sources = []; const seen = new Set();
+    const addSource = s => { const k = `${s.module}:${s.recordId}`; if (!seen.has(k) && sources.length < 12) { seen.add(k); sources.push(s); } };
 
-      if (resp.stop_reason === 'tool_use') {
-        convo.push({ role: 'assistant', content: resp.content });
+    for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+      const stream = anthropic.messages.stream({ model: MODEL, max_tokens: 1500, system: SYSTEM, tools: TOOLS, messages: convo });
+      stream.on('text', delta => send({ type: 'delta', text: delta }));
+      const msg = await stream.finalMessage();
+
+      if (msg.stop_reason === 'tool_use') {
+        convo.push({ role: 'assistant', content: msg.content });
         const results = [];
-        for (const block of resp.content) {
+        for (const block of msg.content) {
           if (block.type !== 'tool_use') continue;
-          toolCalls.push({ tool: block.name, input: block.input });
+          send({ type: 'status', text: statusFor(block.name, block.input) });
           let result;
           try { result = await runTool(block.name, block.input, ctx); }
           catch (e) { result = { error: String(e?.message || e) }; }
+          collectSources(block.name, block.input, result, addSource);
           results.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
         }
         convo.push({ role: 'user', content: results });
         continue;
       }
-
-      const answer = resp.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-      return res.status(200).json({ answer, toolCalls });
+      break; // end_turn — text already streamed
     }
-    return res.status(200).json({ answer: "I wasn't able to finish that lookup — try narrowing the question.", toolCalls });
+
+    if (sources.length) send({ type: 'sources', sources });
+    send({ type: 'done' });
+    res.end();
   } catch (e) {
-    return res.status(500).json({ error: String(e?.message || e) });
+    send({ type: 'error', error: String(e?.message || e) });
+    res.end();
   }
 }
