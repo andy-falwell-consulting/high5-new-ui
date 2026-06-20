@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getRecord, prefetchRecord, updateRecord, invalidateRecord, patchCachedRecord } from '../api/filemaker';
 import { useAllRecords } from '../hooks/useAllRecords';
-import ColorLegend from './ColorLegend';
+import ListToolbar, { useListControls, ListBody } from './ListControls';
 import './Inspections.css';
 
 const LAYOUT = 'Inspections_New';
@@ -122,18 +122,12 @@ function Section({ title, icon, children }) {
 export default function Inspections({ navTarget, onClearNav } = {}) {
   const { records, total } = useAllRecords(LAYOUT, { cacheVersion: CACHE_VERSION });
   const [selected, setSelected] = useState(null);
-  const [search, setSearch] = useState('');
-  const [sortField, setSortFieldRaw] = useState(() => localStorage.getItem('insp_sort_field') || 'date');
-  const [sortOrder, setSortOrderRaw] = useState(() => localStorage.getItem('insp_sort_order') || 'desc');
   const [navWidth, setNavWidth] = useState(300);
   const [dataEditing, setDataEditing] = useState(false);
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
   const isResizing = useRef(false);
-
-  const setSortField = v => { setSortFieldRaw(v); localStorage.setItem('insp_sort_field', v); };
-  const setSortOrder = v => { setSortOrderRaw(v); localStorage.setItem('insp_sort_order', v); };
 
   const parseFmDate = v => {
     if (!v) return 0;
@@ -142,37 +136,26 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
     return new Date(`${y}-${m}-${d}T${time}`).getTime();
   };
 
-  const filtered = records.filter(r => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    const f = r.fieldData;
-    return (
-      f.Organization?.toLowerCase().includes(q) ||
-      f['inspt_CNTCT::NameFirstLast']?.toLowerCase().includes(q) ||
-      f['inspt_CNTCT__site::Site Number']?.toLowerCase().includes(q) ||
-      f['Inspectors Name']?.toLowerCase().includes(q) ||
-      String(f._kpt__Inspection_ID || '').includes(q)
-    );
-  });
+  const orgName = f => f.Organization || f['inspt_CNTCT__site::Name_Organization'] || '';
 
-  const sortedFiltered = [...filtered].sort((a, b) => {
-    let va, vb;
-    if (sortField === 'alpha') {
-      va = (a.fieldData.Organization || '').toLowerCase();
-      vb = (b.fieldData.Organization || '').toLowerCase();
-    } else if (sortField === 'date') {
-      va = parseFmDate(a.fieldData.Date);
-      vb = parseFmDate(b.fieldData.Date);
-    } else if (sortField === 'created') {
-      va = parseFmDate(a.fieldData.zz__Created_On);
-      vb = parseFmDate(b.fieldData.zz__Created_On);
-    } else {
-      va = parseFmDate(a.fieldData.zz__Modified_On);
-      vb = parseFmDate(b.fieldData.zz__Modified_On);
-    }
-    if (va < vb) return sortOrder === 'asc' ? -1 : 1;
-    if (va > vb) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
+  const list = useListControls({
+    records,
+    storageKey: 'insp_sort',
+    name: orgName,
+    searchKeys: ['Organization', 'inspt_CNTCT__site::Name_Organization', 'inspt_CNTCT::NameFirstLast', 'inspt_CNTCT__site::Site Number', 'Inspectors Name', '_kpt__Inspection_ID'],
+    chips: [
+      { id: 'all', label: 'All' },
+      { id: 'repair', label: 'Needs repair', color: STATUS_COLOR['Needs Repair'], match: f => statusOf(f) === 'Needs Repair' },
+      { id: 'ready', label: 'Report ready', color: STATUS_COLOR['Report Ready'], match: f => statusOf(f) === 'Report Ready' },
+      { id: 'open', label: 'Open', color: STATUS_COLOR.Open, match: f => statusOf(f) === 'Open' },
+    ],
+    sorts: [
+      { id: 'date', label: 'Date', value: f => parseFmDate(f.Date) },
+      { id: 'alpha', label: 'Name', alpha: true, value: f => orgName(f).trim().toLowerCase() || '￿' },
+      { id: 'created', label: 'Created', value: f => parseFmDate(f.zz__Created_On) },
+      { id: 'modified', label: 'Modified', value: f => parseFmDate(f.zz__Modified_On) },
+    ],
+    defaultSort: 'date', defaultOrder: 'desc',
   });
 
   async function handleSelect(r) {
@@ -249,35 +232,17 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
               <div className="insp-sidebar-count">{total ? `${total.toLocaleString()} inspections` : 'Loading…'}</div>
             </div>
           </div>
-          <div className="insp-search-wrap" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <span className="insp-search-icon">⌕</span>
-              <input className="insp-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <ColorLegend items={Object.entries(STATUS_COLOR).filter(([k]) => k !== 'default').map(([label, color]) => ({ label, color }))} />
-          </div>
-          <div className="sort-bar">
-            <select className="sort-field" value={sortField} onChange={e => setSortField(e.target.value)}>
-              <option value="date">Date</option>
-              <option value="alpha">A–Z</option>
-              <option value="created">Created</option>
-              <option value="modified">Modified</option>
-            </select>
-            <button className="sort-order-btn" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </button>
-          </div>
+          <ListToolbar c={list} unit="inspections" />
         </div>
 
         {records.length === 0 ? (
           <div className="insp-loading">{[...Array(8)].map((_, i) => <div key={i} className="insp-skeleton" />)}</div>
         ) : (
-          <ul className="insp-list">
-            {sortedFiltered.map(r => {
-              const status = statusOf(r.fieldData);
-              const color = STATUS_COLOR[status] || STATUS_COLOR.default;
+          <div className="insp-list">
+            <ListBody c={list} renderItem={r => {
+              const color = STATUS_COLOR[statusOf(r.fieldData)] || STATUS_COLOR.default;
               return (
-                <li key={r.recordId}
+                <div key={r.recordId}
                   className={`insp-list-item ${selected?.recordId === r.recordId ? 'active' : ''}`}
                   onClick={() => handleSelect(r)}
                   onMouseEnter={() => prefetchRecord(LAYOUT, r.recordId)}
@@ -289,10 +254,10 @@ export default function Inspections({ navTarget, onClearNav } = {}) {
                       {[r.fieldData['inspt_CNTCT__site::Site Number'], r.fieldData.Date].filter(Boolean).join(' · ') || '—'}
                     </div>
                   </div>
-                </li>
+                </div>
               );
-            })}
-          </ul>
+            }} />
+          </div>
         )}
       </aside>
 

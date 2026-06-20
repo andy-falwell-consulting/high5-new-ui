@@ -3,7 +3,7 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { getRecord, prefetchRecord, updateRecord } from '../api/filemaker';
 import { useAllRecords } from '../hooks/useAllRecords';
-import ColorLegend from './ColorLegend';
+import ListToolbar, { useListControls, ListBody } from './ListControls';
 import { useSortableLayout, SortableSection, SortableFieldGrid, SortableField, SectionDragGhost, LayoutHint } from './SortableLayout';
 import './Contacts.css';
 
@@ -184,9 +184,6 @@ function SectionContent({ section, fieldData, portalData, editMode, onFieldReord
 export default function Contacts({ navTarget, onClearNav } = {}) {
   const { records, total } = useAllRecords(LAYOUT, { cacheVersion: 2 });
   const [selected, setSelected] = useState(null);
-  const [search, setSearch] = useState('');
-  const [sortField, setSortFieldRaw] = useState(() => localStorage.getItem('ct_sort_field') || 'created');
-  const [sortOrder, setSortOrderRaw] = useState(() => localStorage.getItem('ct_sort_order') || 'desc');
   const [navWidth, setNavWidth] = useState(280);
   const [tooltip, setTooltip] = useState(null);
   const [dataEditing, setDataEditing] = useState(false);
@@ -199,9 +196,6 @@ export default function Contacts({ navTarget, onClearNav } = {}) {
     useSortableLayout('ct_layout_v1', DEFAULT_SECTIONS);
 
 
-  const setSortField = v => { setSortFieldRaw(v); localStorage.setItem('ct_sort_field', v); };
-  const setSortOrder = v => { setSortOrderRaw(v); localStorage.setItem('ct_sort_order', v); };
-
   const parseFmDate = v => {
     if (!v) return 0;
     const [date, time = '00:00:00'] = v.split(' ');
@@ -209,33 +203,23 @@ export default function Contacts({ navTarget, onClearNav } = {}) {
     return new Date(`${y}-${m}-${d}T${time}`).getTime();
   };
 
-  const filtered = records.filter(r => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    const f = r.fieldData;
-    return (
-      f.zz__Display__ct?.toLowerCase().includes(q) ||
-      f['cntct_ADDR::zz__Display_Single_Line__ct']?.toLowerCase().includes(q) ||
-      f.Type?.toLowerCase().includes(q) ||
-      f.Status?.toLowerCase().includes(q)
-    );
-  });
-
-  const sortedFiltered = [...filtered].sort((a, b) => {
-    let va, vb;
-    if (sortField === 'alpha') {
-      va = (a.fieldData.zz__Display__ct || '').toLowerCase();
-      vb = (b.fieldData.zz__Display__ct || '').toLowerCase();
-    } else if (sortField === 'created') {
-      va = parseFmDate(a.fieldData.zz__Created_On);
-      vb = parseFmDate(b.fieldData.zz__Created_On);
-    } else {
-      va = parseFmDate(a.fieldData.zz__Modified_On);
-      vb = parseFmDate(b.fieldData.zz__Modified_On);
-    }
-    if (va < vb) return sortOrder === 'asc' ? -1 : 1;
-    if (va > vb) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
+  const list = useListControls({
+    records,
+    storageKey: 'ct_sort',
+    name: f => f.zz__Display__ct || '',
+    searchKeys: ['zz__Display__ct', 'cntct_ADDR::zz__Display_Single_Line__ct', 'Type', 'Status'],
+    chips: [
+      { id: 'all', label: 'All' },
+      { id: 'active', label: 'Active', color: STATUS_COLOR.Active, match: f => f.Status === 'Active' },
+      { id: 'inactive', label: 'Inactive', color: STATUS_COLOR.Inactive, match: f => f.Status === 'Inactive' },
+      { id: 'prospect', label: 'Prospect', color: STATUS_COLOR.Prospect, match: f => f.Status === 'Prospect' },
+    ],
+    sorts: [
+      { id: 'alpha', label: 'Name', alpha: true, value: f => (f.zz__Display__ct || '').trim().toLowerCase() || '￿' },
+      { id: 'created', label: 'Created', value: f => parseFmDate(f.zz__Created_On) },
+      { id: 'modified', label: 'Modified', value: f => parseFmDate(f.zz__Modified_On) },
+    ],
+    defaultSort: 'created', defaultOrder: 'desc',
   });
 
   async function handleSelect(r) {
@@ -306,34 +290,17 @@ export default function Contacts({ navTarget, onClearNav } = {}) {
               <div className="ct-sidebar-count">{total ? `${total.toLocaleString()} contacts` : 'Loading…'}</div>
             </div>
           </div>
-          <div className="ct-search-wrap" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <span className="ct-search-icon">⌕</span>
-              <input className="ct-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <ColorLegend items={Object.entries(STATUS_COLOR).filter(([k]) => k !== 'default').map(([label, color]) => ({ label, color }))} />
-          </div>
-          <div className="sort-bar">
-            <select className="sort-field" value={sortField} onChange={e => setSortField(e.target.value)}>
-              <option value="alpha">A–Z</option>
-              <option value="created">Created</option>
-              <option value="modified">Modified</option>
-            </select>
-            <button className="sort-order-btn" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </button>
-          </div>
+          <ListToolbar c={list} unit="contacts" />
         </div>
 
         {records.length === 0 ? (
           <div className="ct-loading">{[...Array(8)].map((_, i) => <div key={i} className="ct-skeleton" />)}</div>
         ) : (
-          <ul className="ct-list">
-            {sortedFiltered.map(r => {
-              const status = r.fieldData.Status;
-              const color = STATUS_COLOR[status] || STATUS_COLOR.default;
+          <div className="ct-list">
+            <ListBody c={list} renderItem={r => {
+              const color = STATUS_COLOR[r.fieldData.Status] || STATUS_COLOR.default;
               return (
-                <li key={r.recordId}
+                <div key={r.recordId}
                   className={`ct-list-item ${selected?.recordId === r.recordId ? 'active' : ''}`}
                   onClick={() => handleSelect(r)}
                   onMouseEnter={e => {
@@ -348,10 +315,10 @@ export default function Contacts({ navTarget, onClearNav } = {}) {
                     <div className="ct-item-name">{r.fieldData.zz__Display__ct || '—'}</div>
                     <div className="ct-item-sub">{r.fieldData['cntct_ADDR::zz__Display_Single_Line_No_Zip__ct'] || r.fieldData.Type || ''}</div>
                   </div>
-                </li>
+                </div>
               );
-            })}
-          </ul>
+            }} />
+          </div>
         )}
       </aside>
 

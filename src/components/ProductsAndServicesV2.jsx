@@ -3,7 +3,7 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { getRecord, updateRecord, addPortalRow, containerImageUrl, createRecord } from '../api/filemaker';
 import { getCurrentEnv } from '../config/fmpEnvironments';
-import ColorLegend from './ColorLegend';
+import ListToolbar, { useListControls, ListBody } from './ListControls';
 import BomPickerModal from './BomPickerModal';
 import NewItemModal from './NewItemModal';
 import ImageLightbox from './ImageLightbox';
@@ -232,9 +232,6 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
     }),
   });
   const [selected, setSelected] = useState(null);
-  const [search, setSearch] = useState('');
-  const [sortField, setSortFieldRaw] = useState(() => localStorage.getItem('ps_sort_field') || 'created');
-  const [sortOrder, setSortOrderRaw] = useState(() => localStorage.getItem('ps_sort_order') || 'asc');
   const [filterVendor, setFilterVendor] = useState('');
   const [filterType, setFilterType]     = useState('');
   const [filterCategory, setFilterCat]  = useState('');
@@ -278,9 +275,6 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
     window.addEventListener('mouseup', onUp);
   }, [navWidth]);
 
-  const setSortField = v => { setSortFieldRaw(v); localStorage.setItem('ps_sort_field', v); };
-  const setSortOrder = v => { setSortOrderRaw(v); localStorage.setItem('ps_sort_order', v); };
-
   const parseFmDate = v => {
     if (!v) return 0;
     const [date, time = '00:00:00'] = v.split(' ');
@@ -288,33 +282,20 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
     return new Date(`${y}-${m}-${d}T${time}`).getTime();
   };
 
-  const filtered = records.filter(r => {
-    const q = search.toLowerCase();
-    const f = r.fieldData;
-    if (q && !f.Name?.toLowerCase().includes(q) && !f.SKU?.toLowerCase().includes(q)) return false;
-    if (filterVendor && f.Vendor !== filterVendor) return false;
-    if (filterType && f.Type !== filterType) return false;
-    if (filterCategory && f.Category !== filterCategory) return false;
-    return true;
-  });
-
   const activeFilterCount = [filterVendor, filterType, filterCategory].filter(Boolean).length;
 
-  const sortedFiltered = [...filtered].sort((a, b) => {
-    let va, vb;
-    if (sortField === 'alpha') {
-      va = (a.fieldData.Name || '').toLowerCase();
-      vb = (b.fieldData.Name || '').toLowerCase();
-    } else if (sortField === 'created') {
-      va = parseFmDate(a.fieldData.zz__Created_On);
-      vb = parseFmDate(b.fieldData.zz__Created_On);
-    } else {
-      va = parseFmDate(a.fieldData.zz__Modified_On);
-      vb = parseFmDate(b.fieldData.zz__Modified_On);
-    }
-    if (va < vb) return sortOrder === 'asc' ? -1 : 1;
-    if (va > vb) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
+  const list = useListControls({
+    records,
+    storageKey: 'ps_sort',
+    name: f => f.Name || '',
+    searchKeys: ['Name', 'SKU', 'Vendor', 'Category'],
+    extraFilter: f => (!filterVendor || f.Vendor === filterVendor) && (!filterType || f.Type === filterType) && (!filterCategory || f.Category === filterCategory),
+    sorts: [
+      { id: 'alpha', label: 'Name', alpha: true, value: f => (f.Name || '').trim().toLowerCase() || '￿' },
+      { id: 'created', label: 'Created', value: f => parseFmDate(f.zz__Created_On) },
+      { id: 'modified', label: 'Modified', value: f => parseFmDate(f.zz__Modified_On) },
+    ],
+    defaultSort: 'created', defaultOrder: 'asc',
   });
 
   async function handleSelect(r) {
@@ -463,24 +444,8 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
             </div>
           </div>
           <button className="v2-btn ghost sm" onClick={() => setShowNewItem(true)} style={{ marginBottom: 8 }}>+ New</button>
-          <div className="v2-search-wrap" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <span className="v2-search-icon">⌕</span>
-              <input className="v2-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <ColorLegend items={Object.entries(CATEGORY_COLORS).map(([label, color]) => ({ label, color }))} />
-          </div>
-          <div className="sort-bar">
-            <select className="sort-field" value={sortField} onChange={e => setSortField(e.target.value)}>
-              <option value="alpha">A–Z</option>
-              <option value="created">Created</option>
-              <option value="modified">Modified</option>
-            </select>
-            <button className="sort-order-btn" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </button>
-          </div>
-          <button className="v2-filter-toggle" onClick={() => setShowFilters(s => !s)}>
+          <ListToolbar c={list} unit="items" />
+          <button className="v2-filter-toggle" onClick={() => setShowFilters(s => !s)} style={{ marginTop: 8 }}>
             <span>Filters</span>
             {activeFilterCount > 0 && <span className="v2-filter-badge">{activeFilterCount}</span>}
             <span className="v2-filter-chevron">{showFilters ? '▴' : '▾'}</span>
@@ -522,11 +487,11 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
         ) : loading ? (
           <div className="v2-loading">{[...Array(8)].map((_, i) => <div key={i} className="v2-skeleton" />)}</div>
         ) : (
-          <ul className="v2-list">
-            {sortedFiltered.map(r => {
+          <div className="v2-list">
+            <ListBody c={list} renderItem={r => {
               const color = CATEGORY_COLORS[r.fieldData.Category] || '#64748b';
               return (
-                <li key={r.recordId}
+                <div key={r.recordId}
                   className={`v2-list-item ${selected?.recordId === r.recordId ? 'active' : ''}`}
                   onClick={() => handleSelect(r)}
                 >
@@ -535,10 +500,10 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav } = {}) {
                     <div className="v2-item-name">{r.fieldData.Name || '(no name)'}</div>
                     <div className="v2-item-sub">{r.fieldData.SKU}</div>
                   </div>
-                </li>
+                </div>
               );
-            })}
-          </ul>
+            }} />
+          </div>
         )}
       </aside>
 

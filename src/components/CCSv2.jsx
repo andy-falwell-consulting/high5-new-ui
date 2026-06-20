@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useAllRecords } from '../hooks/useAllRecords';
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT } from '../config/ccsCache';
 import { getRecord, prefetchRecord, updateRecord, patchCachedRecord, invalidateRecord } from '../api/filemaker';
+import ListToolbar, { useListControls, ListBody } from './ListControls';
 import './CCSv2.css';
 
 const LAYOUT = RCD_LAYOUT;
@@ -148,9 +149,6 @@ export default function CCSv2({ navTarget, onNavigateTo, onClearNav }) {
   const { records, total } = useAllRecords(LAYOUT, { cacheVersion: RCD_CACHE_VERSION, findQuery: RCD_FIND_QUERY, sort: RCD_SORT });
 
   const [selected, setSelected] = useState(null);
-  const [search, setSearch]     = useState('');
-  const [sortField, setSortFieldRaw] = useState(() => localStorage.getItem('ccs2_sort_field') || 'created');
-  const [sortOrder, setSortOrderRaw] = useState(() => localStorage.getItem('ccs2_sort_order') || 'desc');
   const [navWidth, setNavWidth] = useState(300);
   const [edits, setEdits]       = useState({});
   const [saving, setSaving]     = useState(false);
@@ -158,9 +156,6 @@ export default function CCSv2({ navTarget, onNavigateTo, onClearNav }) {
   const [expanded, setExpanded] = useState({});
   const [finTab, setFinTab]     = useState('estimates');
   const isResizing = useRef(false);
-
-  const setSortField = v => { setSortFieldRaw(v); localStorage.setItem('ccs2_sort_field', v); };
-  const setSortOrder = v => { setSortOrderRaw(v); localStorage.setItem('ccs2_sort_order', v); };
 
   const f = useMemo(() => selected?.fieldData || EMPTY_FIELDS, [selected]);
   const val = useCallback(fk => (fk in edits ? edits[fk] : f[fk]), [edits, f]);
@@ -261,23 +256,26 @@ export default function CCSv2({ navTarget, onNavigateTo, onClearNav }) {
 
   // ── List filtering / sorting ──
   const parseTs = v => { const dt = parseFmDate(v); return dt ? dt.getTime() : 0; };
-  const filtered = records.filter(r => {
-    if (!search) return true;
-    const q = search.toLowerCase(); const rf = r.fieldData;
-    return rf.zz__Display_Organization__ct?.toLowerCase().includes(q)
-        || rf.zz__Display_Contact__ct?.toLowerCase().includes(q)
-        || rf.Status?.toLowerCase().includes(q)
-        || rf.kanban_status?.toLowerCase().includes(q);
-  });
-  const sorted = [...filtered].sort((a, b) => {
-    let va, vb;
-    if (sortField === 'alpha') { va = (a.fieldData.zz__Display_Organization__ct || '').toLowerCase(); vb = (b.fieldData.zz__Display_Organization__ct || '').toLowerCase(); }
-    else if (sortField === 'event') { va = parseTs(a.fieldData['rcd start date']); vb = parseTs(b.fieldData['rcd start date']); }
-    else if (sortField === 'modified') { va = parseTs(a.fieldData.zz__Modified_On); vb = parseTs(b.fieldData.zz__Modified_On); }
-    else { va = parseTs(a.fieldData.zz__Created_On); vb = parseTs(b.fieldData.zz__Created_On); }
-    if (va < vb) return sortOrder === 'asc' ? -1 : 1;
-    if (va > vb) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
+  const projStatus = t => { t = (t || '').toLowerCase(); if (t.includes('complet')) return 'done'; if (t.includes('no go') || t.includes('cancel')) return 'nogo'; return t ? 'active' : null; };
+
+  const list = useListControls({
+    records,
+    storageKey: 'ccs2_sort',
+    name: f => f.zz__Display_Organization__ct || '',
+    searchKeys: ['zz__Display_Organization__ct', 'zz__Display_Contact__ct', 'Status', 'kanban_status'],
+    chips: [
+      { id: 'all', label: 'All' },
+      { id: 'active', label: 'Active', color: '#3b82f6', match: f => projStatus(f.Status) === 'active' },
+      { id: 'done', label: 'Completed', color: '#22c55e', match: f => projStatus(f.Status) === 'done' },
+      { id: 'nogo', label: 'No go', color: '#94a3b8', match: f => projStatus(f.Status) === 'nogo' },
+    ],
+    sorts: [
+      { id: 'created', label: 'Created', value: f => parseTs(f.zz__Created_On) },
+      { id: 'modified', label: 'Modified', value: f => parseTs(f.zz__Modified_On) },
+      { id: 'event', label: 'Event date', value: f => parseTs(f['rcd start date']) },
+      { id: 'alpha', label: 'Name', alpha: true, value: f => (f.zz__Display_Organization__ct || '').trim().toLowerCase() || '￿' },
+    ],
+    defaultSort: 'created', defaultOrder: 'desc',
   });
 
   const dirtyCount = Object.keys(edits).length;
@@ -290,17 +288,10 @@ export default function CCSv2({ navTarget, onNavigateTo, onClearNav }) {
       <nav className="cv2-nav" style={{ width: navWidth }}>
         <div className="cv2-nav-head">
           <div className="cv2-nav-title"><div><div className="cv2-nav-name">CCS</div><div className="cv2-nav-count">{total ? `${records.length} / ${total}` : records.length}</div></div></div>
-          <input className="cv2-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
-          <div className="cv2-sortbar">
-            <select value={sortField} onChange={e => setSortField(e.target.value)}>
-              <option value="created">Created</option><option value="modified">Modified</option>
-              <option value="event">Event date</option><option value="alpha">A–Z</option>
-            </select>
-            <button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? '↑' : '↓'}</button>
-          </div>
+          <ListToolbar c={list} unit="projects" />
         </div>
         <div className="cv2-list">
-          {sorted.map(r => {
+          <ListBody c={list} renderItem={r => {
             const rf = r.fieldData; const c = statusColor(rf.Status);
             const d = daysUntil(rf['rcd start date']);
             return (
@@ -316,7 +307,7 @@ export default function CCSv2({ navTarget, onNavigateTo, onClearNav }) {
                 </div>
               </div>
             );
-          })}
+          }} />
         </div>
       </nav>
 
