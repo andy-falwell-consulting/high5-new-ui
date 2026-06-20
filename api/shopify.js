@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (action === 'debug') return res.status(200).json({ store, tokenPrefix: token.slice(0, 8) + '...' });
 
 
-  const base = `https://${store}/admin/api/2024-01`;
+  const base = `https://${store}/admin/api/2025-10`;
   const headers = {
     'X-Shopify-Access-Token': token,
     'Content-Type': 'application/json',
@@ -26,6 +26,19 @@ export default async function handler(req, res) {
       });
     } else if (action === 'update') {
       if (!productId) return res.status(400).json({ error: 'productId required for update' });
+      // A variant without an id makes Shopify try to CREATE a variant, which
+      // collides with the existing "Default Title" and the update fails. If the
+      // caller didn't supply the variant id (e.g. the FMP record never stored
+      // it), resolve it from the live product by SKU so we update in place.
+      if (product?.variants?.length && !product.variants[0].id) {
+        const cur = await fetch(`${base}/products/${productId}.json`, { headers });
+        if (cur.ok) {
+          const existing = (await cur.json()).product;
+          const want = String(product.variants[0].sku || '');
+          const match = existing?.variants?.find(v => String(v.sku) === want) || existing?.variants?.[0];
+          if (match) product.variants[0].id = match.id;
+        }
+      }
       upstream = await fetch(`${base}/products/${productId}.json`, {
         method: 'PUT',
         headers,
