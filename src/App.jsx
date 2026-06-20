@@ -5,6 +5,7 @@ import ProductsAndServicesV2 from './components/ProductsAndServicesV2'
 import Contacts from './components/Contacts'
 import Inspections from './components/Inspections'
 import ProjectsWorkspace from './components/ProjectsWorkspace'
+import Admin from './components/Admin'
 import CommandPalette from './components/CommandPalette'
 import AgentPanel from './components/AgentPanel'
 import { getAllRecords } from './api/filemaker'
@@ -18,6 +19,7 @@ const MODULES = [
   { id: 'inspections', label: 'Inspections', icon: '⚑', group: 'Records' },
   { id: 'products', label: 'Products & Services', icon: '◫', group: 'Records' },
   { id: 'projects', label: 'Course projects', icon: '◈', group: 'Projects' },
+  { id: 'admin', label: 'Admin', icon: '⚙', group: 'System' },
 ]
 
 function getInitialTheme() {
@@ -85,6 +87,7 @@ export default function App() {
         {visited.has('inspections') && <div style={{ display: activeModule === 'inspections' ? 'contents' : 'none' }}><Inspections navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
         {visited.has('products') && <div style={{ display: activeModule === 'products' ? 'contents' : 'none' }}><ProductsAndServicesV2 navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
         {visited.has('projects') && <div style={{ display: activeModule === 'projects' ? 'contents' : 'none' }}><ProjectsWorkspace navTarget={navTarget} onClearNav={clearNavTarget} /></div>}
+        {visited.has('admin') && <div style={{ display: activeModule === 'admin' ? 'contents' : 'none' }}><Admin /></div>}
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onPick={handlePalettePick} modules={MODULES} theme={theme} onToggleTheme={toggleTheme} />
         {!agentOpen && <button className="agent-fab" onClick={() => setAgentOpen(true)} title="Ask the assistant">✦</button>}
         <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} onOpenRecord={(m, id) => navigateTo(m, id)} />
