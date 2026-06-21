@@ -3,7 +3,18 @@
     "allow": [
       "Bash(git push *)",
       "Bash(npx vercel *)",
-      "Bash(vercel *)"
+      "Bash(vercel *)",
+      "mcp__Claude_Preview__preview_screenshot",
+      "mcp__Claude_Preview__preview_console_logs",
+      "mcp__Claude_Preview__preview_network",
+      "mcp__Claude_Preview__preview_snapshot",
+      "mcp__Claude_Preview__preview_inspect",
+      "mcp__visualize__show_widget",
+      "mcp__Claude_Preview__preview_list",
+      "mcp__9a947529-6bb8-4bd7-84f6-50c4bc1f5414__list_projects",
+      "mcp__9a947529-6bb8-4bd7-84f6-50c4bc1f5414__get_runtime_logs",
+      "mcp__9a947529-6bb8-4bd7-84f6-50c4bc1f5414__get_project",
+      "mcp__visualize__read_me"
     ]
   }
 }
