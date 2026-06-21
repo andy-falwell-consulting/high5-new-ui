@@ -8,8 +8,8 @@ const redis = Redis.fromEnv();
 
 export default async function handler(req, res) {
   const store = process.env.SHOPIFY_STORE;
-  const apiKey = process.env.SHOPIFY_API_KEY;
-  const apiSecret = process.env.SHOPIFY_API_SECRET;
+  const apiKey = process.env.SHOPIFY_API_KEY || process.env.SHOPIFY_CLIENT_ID;
+  const apiSecret = process.env.SHOPIFY_API_SECRET || process.env.SHOPIFY_CLIENT_SECRET;
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const appUrl = `https://${host}`;
   const fail = reason => { res.writeHead(302, { Location: `${appUrl}/?shopify=error&reason=${encodeURIComponent(reason)}` }); res.end(); };

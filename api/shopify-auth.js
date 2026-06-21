@@ -7,7 +7,7 @@ const redis = Redis.fromEnv();
 
 export default async function handler(req, res) {
   const store = process.env.SHOPIFY_STORE;
-  const apiKey = process.env.SHOPIFY_API_KEY;
+  const apiKey = process.env.SHOPIFY_API_KEY || process.env.SHOPIFY_CLIENT_ID;
   if (!store || !apiKey) {
     return res.status(500).send('Shopify OAuth not configured — set SHOPIFY_STORE and SHOPIFY_API_KEY.');
   }

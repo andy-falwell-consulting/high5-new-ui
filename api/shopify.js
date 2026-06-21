@@ -23,12 +23,11 @@ export default async function handler(req, res) {
       tokenSource,
       tokenPrefix: token ? token.slice(0, 6) + '…' : null,
       tokenLength: token ? token.length : 0,
-      oauth: {
-        storeSet: !!store,
-        apiKeySet: !!process.env.SHOPIFY_API_KEY,
-        apiSecretSet: !!process.env.SHOPIFY_API_SECRET,
-        ready: !!(store && process.env.SHOPIFY_API_KEY && process.env.SHOPIFY_API_SECRET),
-      },
+      oauth: (() => {
+        const apiKey = process.env.SHOPIFY_API_KEY || process.env.SHOPIFY_CLIENT_ID;
+        const apiSecret = process.env.SHOPIFY_API_SECRET || process.env.SHOPIFY_CLIENT_SECRET;
+        return { storeSet: !!store, apiKeySet: !!apiKey, apiSecretSet: !!apiSecret, ready: !!(store && apiKey && apiSecret) };
+      })(),
     };
     if (out.configured) {
       try {
