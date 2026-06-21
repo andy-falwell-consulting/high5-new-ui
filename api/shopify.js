@@ -23,6 +23,12 @@ export default async function handler(req, res) {
       tokenSource,
       tokenPrefix: token ? token.slice(0, 6) + '…' : null,
       tokenLength: token ? token.length : 0,
+      oauth: {
+        storeSet: !!store,
+        apiKeySet: !!process.env.SHOPIFY_API_KEY,
+        apiSecretSet: !!process.env.SHOPIFY_API_SECRET,
+        ready: !!(store && process.env.SHOPIFY_API_KEY && process.env.SHOPIFY_API_SECRET),
+      },
     };
     if (out.configured) {
       try {
