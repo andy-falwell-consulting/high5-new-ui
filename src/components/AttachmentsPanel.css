@@ -67,3 +67,16 @@
 }
 .att-del:hover:not(:disabled) { background: #e8322a; color: #fff; }
 .att-del:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Light Theme ─────────────────────────────────────────────────── */
+[data-theme="light"] .att-panel {
+  --att-surface: #ffffff;
+  --att-surface-2: #f1f5f9;
+  --att-border: #e2e8f0;
+  --att-border-2: #cbd5e1;
+  --att-text: #0f172a;
+  --att-text-2: #5e6b7c;
+  --att-accent: #c2570f;
+}
+[data-theme="light"] .att-del { background: #ffffffcc; color: #5e6b7c; }
+[data-theme="light"] .att-del:hover:not(:disabled) { background: #e8322a; color: #fff; }
