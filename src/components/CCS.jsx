@@ -431,7 +431,7 @@ export default function CCS({ navTarget, onNavigateTo, onClearNav }) {
               <div key={r.recordId}
                 className={`ccs-list-item${selected?.recordId === r.recordId ? ' active' : ''}`}
                 onClick={() => handleSelect(r)}
-                onMouseEnter={() => prefetchRecord(LAYOUT, r.recordId)}
+                // onMouseEnter={() => prefetchRecord(LAYOUT, r.recordId)}
               >
                 <div className="ccs-list-org">{rf.zz__Display_Organization__ct || '—'}</div>
                 <div className="ccs-list-meta">

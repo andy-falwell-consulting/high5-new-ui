@@ -1,17 +1,30 @@
 import { getCurrentEnv } from '../config/fmpEnvironments';
 
-// Run async tasks with max concurrency
-async function pLimit(concurrency, tasks) {
-  const results = [];
-  let i = 0;
-  async function worker() {
-    while (i < tasks.length) {
-      const idx = i++;
-      results[idx] = await tasks[idx]();
+// Priority fetch scheduler — two tiers (HIGH=0, LOW=1).
+// Single-record fetches use HIGH; bulk batch pages use LOW.
+// HIGH items always drain before LOW, so hover/click jumps the queue.
+const _HIGH = 0, _LOW = 1;
+const _MAX_CONCURRENT = 4;
+let _active = 0;
+const _queues = [[], []];
+
+function _scheduleNext() {
+  if (_active >= _MAX_CONCURRENT) return;
+  for (const q of _queues) {
+    if (q.length) {
+      _active++;
+      const { fn, resolve, reject } = q.shift();
+      fn().then(resolve, reject).finally(() => { _active--; _scheduleNext(); });
+      return;
     }
   }
-  await Promise.all(Array.from({ length: concurrency }, worker));
-  return results;
+}
+
+function _scheduledFetch(priority, fn) {
+  return new Promise((resolve, reject) => {
+    _queues[priority].push({ fn, resolve, reject });
+    _scheduleNext();
+  });
 }
 
 // /fmi/* is proxied in both dev (Vite) and prod (Vercel rewrite → /api/proxy).
@@ -62,10 +75,10 @@ async function getToken() {
 export async function getRecords(layout, limit = 100, offset = 1, signal) {
   const token = await getToken();
   const env = getCurrentEnv();
-  const res = await fetch(
+  const res = await _scheduledFetch(_LOW, () => fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records?_limit=${limit}&_offset=${offset}`,
     { headers: { Authorization: `Bearer ${token}` }, signal }
-  );
+  ));
   if (res.status === 401) {
     sessionToken = null;
     return getRecords(layout, limit, offset, signal);
@@ -242,7 +255,7 @@ async function findRecords(layout, query, limit, offset, signal, sort) {
   const env = getCurrentEnv();
   const body = { query, limit, offset };
   if (sort) body.sort = sort;
-  const res = await fetch(
+  const res = await _scheduledFetch(_LOW, () => fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/_find`,
     {
       method: 'POST',
@@ -250,7 +263,7 @@ async function findRecords(layout, query, limit, offset, signal, sort) {
       body: JSON.stringify(body),
       signal,
     }
-  );
+  ));
   if (res.status === 401) {
     sessionToken = null;
     return findRecords(layout, query, limit, offset, signal);
@@ -309,10 +322,10 @@ export async function getRecord(layout, recordId) {
   if (detailCache.has(key)) return detailCache.get(key);
   const token = await getToken();
   const env = getCurrentEnv();
-  const res = await fetch(
+  const res = await _scheduledFetch(_HIGH, () => fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
     { headers: { Authorization: `Bearer ${token}` } }
-  );
+  ));
   // Refresh the matching list row from this fresh fetch (hover/click), so the
   // displayed list reflects current data even though we don't bulk-refresh.
   const promise = res.json().then(data => {
@@ -399,10 +412,10 @@ export async function getRecordWithPortals(layout, recordId, portalLimits = {}) 
   const token = await getToken();
   const env = getCurrentEnv();
   const qs = Object.entries(portalLimits).map(([p, n]) => `_limit.${encodeURIComponent(p)}=${n}`).join('&');
-  const res = await fetch(
+  const res = await _scheduledFetch(_HIGH, () => fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}${qs ? '?' + qs : ''}`,
     { headers: { Authorization: `Bearer ${token}` } }
-  );
+  ));
   if (res.status === 401) { sessionToken = null; return getRecordWithPortals(layout, recordId, portalLimits); }
   return res.json();
 }

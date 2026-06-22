@@ -280,7 +280,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo } = {}) {
                   onMouseEnter={e => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     setTooltip({ r, x: rect.right + 8, y: rect.top });
-                    prefetchRecord(LAYOUT, r.recordId);
+                    // prefetchRecord(LAYOUT, r.recordId);
                   }}
                   onMouseLeave={() => setTooltip(null)}
                 >
