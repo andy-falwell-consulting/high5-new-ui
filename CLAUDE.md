@@ -30,6 +30,29 @@ src/
 
 ---
 
+## Auth (Google OAuth)
+
+The app uses Google OAuth for identity and Google Workspace access (Gmail, Calendar, Drive).
+
+**Flow:** `LoginScreen` → `/api/google-auth` → Google consent → `/api/google-callback` → httpOnly cookie → app
+
+**Key files:**
+- `api/_googleSession.js` — shared helper: `getGoogleSession(req)` (parses cookie, fetches session from Redis, auto-refreshes token) and `parseSessionId(req)`
+- `api/google-auth.js` — initiates OAuth; stores `oauth_state:{nonce}` → redirectUri in Redis (10 min TTL)
+- `api/google-callback.js` — exchanges code, stores `session:{sessionId}` in Redis (30 day TTL), sets `h5_session` httpOnly cookie
+- `api/me.js` — returns `{ userId, email, name, picture }` or 401
+- `api/google-logout.js` — revokes token, deletes Redis session, clears cookie
+
+**Env vars required:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. `GOOGLE_REDIRECT_URI` is optional (derived from request host if unset — register both staging and production URIs in Google Cloud Console).
+
+**Auth gate in App.jsx:** calls `/api/me` on mount; blocks with `<LoginScreen />` on deployed environments (passes through on `localhost` since serverless functions don't run locally).
+
+**Session in agent.js:** `getGoogleSession(req)` called alongside `fmpToken(db)` at the top of the handler. Google tokens are passed in `ctx.googleToken` and `ctx.googleUser`. The system prompt includes the user's name and email.
+
+**Scopes requested:** `openid email profile gmail calendar drive` (all full-access).
+
+**Adding test users:** Google Cloud Console → OAuth consent screen → Test users. Required for unverified apps with sensitive scopes.
+
 ## Adding a new module
 
 ### 1. FileMaker layout name
