@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import NavRail from './components/NavRail'
+import LoginScreen from './components/LoginScreen'
 import Home from './components/Home'
 import ProductsAndServicesV2 from './components/ProductsAndServicesV2'
 import Contacts from './components/Contacts'
@@ -47,6 +48,20 @@ export default function App() {
   const [navTarget, setNavTarget] = useState(initial.recordId ? { moduleId: initial.moduleId, recordId: initial.recordId } : null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [agentOpen, setAgentOpen] = useState(false)
+  const [user, setUser] = useState(null)
+  const [authChecked, setAuthChecked] = useState(false)
+
+  // Auth check — /api/me returns 401 if not logged in, 404 in local dev (pass through)
+  useEffect(() => {
+    fetch('/api/me')
+      .then(r => {
+        if (r.status === 401) { setAuthChecked(true); return null }
+        if (!r.ok) { setAuthChecked(true); return null } // 404 in local dev — allow through
+        return r.json()
+      })
+      .then(u => { if (u) { setUser(u); setAuthChecked(true) } })
+      .catch(() => setAuthChecked(true)) // network error — allow through
+  }, [])
 
   // Pre-warm all module caches on startup so every tab loads instantly
   useEffect(() => {
@@ -119,9 +134,20 @@ export default function App() {
     localStorage.setItem('theme', next)
   }
 
+  async function handleLogout() {
+    await fetch('/api/google-logout', { method: 'POST' }).catch(() => {})
+    setUser(null)
+  }
+
+  if (!authChecked) return null
+
+  // Block on deployed app; pass through on localhost (no serverless functions in dev)
+  const isLocalDev = window.location.hostname === 'localhost'
+  if (!user && !isLocalDev) return <div data-theme={theme}><LoginScreen /></div>
+
   return (
     <div data-theme={theme} style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-        <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} onToggleTheme={toggleTheme} onOpenPalette={() => setPaletteOpen(true)} />
+        <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} onToggleTheme={toggleTheme} onOpenPalette={() => setPaletteOpen(true)} user={user} onLogout={handleLogout} />
         {visited.has('home') && <div style={{ display: activeModule === 'home' ? 'contents' : 'none' }}><Home onOpen={handlePalettePick} onGoto={handleSelect} onOpenView={(m, v) => navigateTo(m, null, v)} onOpenPalette={() => setPaletteOpen(true)} /></div>}
         {visited.has('contacts') && <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts navTarget={navTarget} onClearNav={clearNavTarget} onNavigateTo={navigateTo} onRecordSelect={makeRecordSelectHandler('contacts')} /></div>}
         {visited.has('inspections') && <div style={{ display: activeModule === 'inspections' ? 'contents' : 'none' }}><Inspections navTarget={navTarget} onClearNav={clearNavTarget} onRecordSelect={makeRecordSelectHandler('inspections')} /></div>}

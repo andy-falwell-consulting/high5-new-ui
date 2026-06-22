@@ -1,5 +1,5 @@
 /* global __APP_VERSION__ */
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { FMP_ENVIRONMENTS, getCurrentEnv, setCurrentEnvId } from '../config/fmpEnvironments'
 
 const MIN_WIDTH = 48
@@ -8,10 +8,12 @@ const DEFAULT_WIDTH = 196
 
 const ENV_DOT = { development: '#22c55e', staging: '#f59e0b', production: '#ef4444' }
 
-export default function NavRail({ modules, activeId, onSelect, theme, onToggleTheme, onOpenPalette }) {
+export default function NavRail({ modules, activeId, onSelect, theme, onToggleTheme, onOpenPalette, user, onLogout }) {
   const [width, setWidth] = useState(DEFAULT_WIDTH)
   const [collapsed, setCollapsed] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const dragStart = useRef(null)
+  const userMenuRef = useRef(null)
   const light = theme === 'light'
 
   const displayWidth = collapsed ? COLLAPSED_WIDTH : width
@@ -20,8 +22,18 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
   const env = getCurrentEnv()
   const envDot = ENV_DOT[env.id] || '#64748b'
   const isProd = env.id === 'production'
-  const user = env.user || 'user'
-  const userInitials = user.slice(0, 2).toUpperCase()
+
+  // Derive display name and initials from Google user or env fallback
+  const displayName = user?.name || env.user || 'user'
+  const userInitials = displayName.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const onDown = e => { if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setUserMenuOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [userMenuOpen])
 
   // Theme tokens
   const c = light ? {
@@ -180,14 +192,33 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
           )}
 
           {showLabels ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 24, height: 24, borderRadius: '50%', background: light ? '#e2e8f0' : '#1e2130', color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{userInitials}</span>
-              <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-                <div style={{ fontSize: 14, color: c.textActive, overflow: 'hidden', textOverflow: 'ellipsis' }}>{user}</div>
-                <div style={{ fontSize: 12, color: c.sub }}>v{__APP_VERSION__}</div>
-              </div>
-              <button onClick={onToggleTheme} title={light ? 'Dark mode' : 'Light mode'}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 3, opacity: 0.75 }}>{light ? '🌙' : '☀️'}</button>
+            <div style={{ position: 'relative' }} ref={userMenuRef}>
+              <button onClick={() => setUserMenuOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                {user?.picture
+                  ? <img src={user.picture} referrerPolicy="no-referrer" alt={displayName} style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }} />
+                  : <span style={{ width: 24, height: 24, borderRadius: '50%', background: light ? '#e2e8f0' : '#1e2130', color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{userInitials}</span>
+                }
+                <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: c.textActive, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+                  <div style={{ fontSize: 11, color: c.sub }}>v{__APP_VERSION__}</div>
+                </div>
+              </button>
+              {userMenuOpen && (
+                <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 6, background: light ? '#ffffff' : '#13151c', border: `1px solid ${light ? '#e2e8f0' : '#1e2130'}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.3)', zIndex: 100 }}>
+                  {user?.email && <div style={{ padding: '8px 12px', fontSize: 12, color: c.sub, borderBottom: `1px solid ${light ? '#e2e8f0' : '#1e2130'}` }}>{user.email}</div>}
+                  <button onClick={onToggleTheme}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: c.text, textAlign: 'left' }}>
+                    {light ? '🌙' : '☀️'} {light ? 'Dark mode' : 'Light mode'}
+                  </button>
+                  {onLogout && (
+                    <button onClick={() => { setUserMenuOpen(false); onLogout() }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', borderTop: `1px solid ${light ? '#e2e8f0' : '#1e2130'}`, cursor: 'pointer', fontSize: 13, color: '#e8322a', textAlign: 'left' }}>
+                      Sign out
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <button onClick={onToggleTheme} title={light ? 'Dark mode' : 'Light mode'}
