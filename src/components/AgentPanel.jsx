@@ -4,8 +4,9 @@ import './AgentPanel.css';
 
 const SUGGESTIONS = [
   'Which inspections need repair?',
+  'How many Shopify products were added in the last 3 months?',
+  'What are our open invoices in QuickBooks?',
   'Summarize the most recent project',
-  'When was 4-H Camp Bristol Hills last inspected?',
 ];
 
 const MODULE_LABEL = { inspections: 'Inspection', contacts: 'Contact', projects: 'Project', products: 'Product' };
@@ -98,7 +99,7 @@ export default function AgentPanel({ open, onClose, onOpenRecord }) {
         {messages.length === 0 ? (
           <div className="agent-empty">
             <p className="agent-empty-title">Ask about your records</p>
-            <p className="agent-empty-sub">Inspections, contacts, projects, and products — read-only.</p>
+            <p className="agent-empty-sub">FileMaker records, Shopify store, and QuickBooks — read-only.</p>
             <div className="agent-suggest">
               {SUGGESTIONS.map(s => (
                 <button key={s} className="agent-chip" onClick={() => send(s)}>{s}</button>

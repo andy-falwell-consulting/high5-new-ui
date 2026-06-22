@@ -1,8 +1,8 @@
-// Read-only data assistant. Answers questions about FileMaker records by letting
-// Claude call a small set of read-only tools (schema / search / get) that this
-// function executes server-side against the FileMaker Data API. The API key and
-// FMP credentials never leave the server.
+// Read-only data assistant. Answers questions about FileMaker records, Shopify,
+// and QuickBooks Online by letting Claude call a small set of read-only tools
+// executed server-side. Credentials never leave the server.
 import Anthropic from '@anthropic-ai/sdk';
+import { Redis } from '@upstash/redis';
 
 export const config = { maxDuration: 60 };
 
@@ -10,11 +10,9 @@ const FMP_HOST = 'https://ILELLCO.pcifmhosting.com';
 const FMP_BASIC = 'Basic ' + Buffer.from('admin:itstime').toString('base64');
 const ALLOWED_DBS = ['High5_Core4_Dev', 'High5_Core4_Stage', 'High5_Core4'];
 const MODEL = 'claude-sonnet-4-6';
-const MAX_TOOL_TURNS = 8;
+const MAX_TOOL_TURNS = 10;
 
-// Which FileMaker layout backs each module the assistant can read, plus the
-// fields most useful for searching (seeded into the prompt; full schema is
-// available on demand via the get_schema tool).
+// ── FileMaker modules ────────────────────────────────────────────────────────
 const MODULES = {
   inspections: {
     layout: 'Inspections_New',
@@ -35,28 +33,50 @@ const MODULES = {
   },
 };
 
-const SYSTEM = `You are the High 5 Core DB assistant. You answer questions about the organization's FileMaker records: adventure-course Inspections, Contacts, Course projects (internally "RCD"), and Products & Services.
+// ── System prompt ────────────────────────────────────────────────────────────
+const SYSTEM = `You are the High 5 Adventure Learning Center assistant. You answer questions about the organization's data across three systems: FileMaker (internal records), Shopify (e-commerce store), and QuickBooks Online (accounting).
 
-You are READ-ONLY. You can search and read records but never create, edit, or delete anything.
+You are READ-ONLY. Never create, edit, or delete anything.
 
-Tools:
-- get_schema(module): list the real field names on a module's layout. Call this when you are unsure of a field name before searching.
-- search_records(module, query, limit): query is a FileMaker find — an array of objects mapping field name to a search value (supports operators like ">=", "*wildcard*", "==exact"). Multiple objects are OR'd; fields within one object are AND'd. Example: [{"Organization":"*camp*"}].
-- get_record(module, recordId): full detail for one record, including related line items where applicable.
+## FileMaker tools
+- get_schema(module): list real field names on a layout. Call before searching if unsure of a field name.
+- search_records(module, query, limit): FileMaker find — array of field→value objects (OR-combined, fields within one object AND'd). Supports ">=date", "*wildcard*", "==exact". Example: [{"Organization":"*camp*"}].
+- get_record(module, recordId): full record detail including related line items.
 
-Modules and useful fields:
-- inspections (layout Inspections_New): ${MODULES.inspections.keyFields.join(', ')}. Each inspection has line items (category, grade, description) returned by get_record. "needs_repair" non-empty / "Report Ready"=Yes are status flags.
-- contacts (Contacts_New): ${MODULES.contacts.keyFields.join(', ')}.
-- projects (RCD_app): ${MODULES.projects.keyFields.join(', ')}. "kanban_status" is the pipeline stage.
-- products (Products & Services_New): ${MODULES.products.keyFields.join(', ')}.
+FileMaker modules:
+- inspections: ${MODULES.inspections.keyFields.join(', ')}. Line items returned by get_record. "needs_repair" non-empty / "Report Ready"=Yes are status flags.
+- contacts: ${MODULES.contacts.keyFields.join(', ')}.
+- projects (internally "RCD"): ${MODULES.projects.keyFields.join(', ')}. "kanban_status" is the pipeline stage.
+- products (Products & Services_New): ${MODULES.products.keyFields.join(', ')} — this is the internal product catalog, NOT the Shopify store.
 
-Guidance:
-- Prefer searching by organization/name with wildcards (e.g. "*bristol*").
-- When asked about a specific record, search to find it, then get_record for detail.
-- Be concise and factual. Cite the record id and organization/name you used. If a search returns nothing, say so rather than guessing.
-- Dates are M/D/YYYY. Today's context may be provided by the user.`;
+## Shopify tool
+- shopify_graphql(query, variables?): run a read-only GraphQL query against the Shopify Admin API.
+  Use for: store products, inventory, orders, customers, collections, sales data.
+  Key types: Product (id, title, createdAt, updatedAt, status, totalInventory, variants), Order (id, name, createdAt, totalPriceSet, customer, lineItems), Customer (id, displayName, email, ordersCount).
+  Date filters use ISO 8601: "created_at:>2026-03-01". Count queries: productsCount, ordersCount.
+  Example — products added in last 90 days:
+    { productsCount(query: "created_at:>2026-03-22") { count } }
+  Example — recent orders:
+    { orders(first: 10, sortKey: CREATED_AT, reverse: true) { edges { node { id name createdAt totalPriceSet { shopMoney { amount currencyCode } } } } } }
 
-// ── FileMaker Data API (server-side) ──────────────────────────────────────
+## QuickBooks Online tool
+- qbo_query(sql): run a read-only QBO SQL query.
+  Use for: invoices, payments, items/services, customers, vendors, accounts, AR aging.
+  SQL syntax: SELECT [fields|*|COUNT(*)] FROM [Table] WHERE [conditions] [ORDER BY] [STARTPOSITION n] [MAXRESULTS n]
+  Key tables: Item (Name, Type, UnitPrice, QtyOnHand, CreateTime, LastUpdatedTime), Invoice (DocNumber, TxnDate, DueDate, TotalAmt, Balance, CustomerRef, CreateTime), Customer (DisplayName, Balance, CreateTime), Payment (TotalAmt, TxnDate, CustomerRef).
+  Dates use ISO 8601 format: CreateTime > '2026-03-22'
+  Example — items created in last 3 months:
+    SELECT * FROM Item WHERE CreateTime > '2026-03-22' ORDERBY CreateTime DESC MAXRESULTS 100
+  Example — open invoices:
+    SELECT * FROM Invoice WHERE Balance > '0' ORDERBY DueDate ASC MAXRESULTS 50
+
+## Guidance
+- Choose the right system: internal catalog/inspections/projects/contacts → FileMaker; store products/orders/customers → Shopify; accounting/invoices/payments → QBO.
+- For date questions, today is provided in the conversation or use the current date.
+- Be concise and cite the record id or name you used. If a search returns nothing, say so.
+- FileMaker dates are M/D/YYYY. Shopify/QBO dates are ISO 8601.`;
+
+// ── FileMaker auth ───────────────────────────────────────────────────────────
 async function fmpToken(db) {
   const r = await fetch(`${FMP_HOST}/fmi/data/v2/databases/${db}/sessions`, {
     method: 'POST',
@@ -67,10 +87,89 @@ async function fmpToken(db) {
   if (!j?.response?.token) throw new Error('FileMaker auth failed: ' + (j?.messages?.[0]?.message || r.status));
   return j.response.token;
 }
-
 const fmpHeaders = token => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
 
+// ── Shopify auth ─────────────────────────────────────────────────────────────
+async function shopifyToken() {
+  const redis = Redis.fromEnv();
+  try { const t = await redis.get('shopify_token'); if (t) return t; } catch { /* redis unavailable */ }
+  return process.env.SHOPIFY_TOKEN || null;
+}
+
+// ── QBO auth ─────────────────────────────────────────────────────────────────
+async function qboToken() {
+  const redis = Redis.fromEnv();
+  const cached = await redis.get('qbo_access_token').catch(() => null);
+  if (cached) return cached;
+
+  const refreshToken = (await redis.get('qbo_refresh_token').catch(() => null)) || process.env.QBO_REFRESH_TOKEN;
+  if (!refreshToken) throw new Error('QBO not connected — no refresh token available.');
+
+  const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+  });
+  const tokens = await resp.json();
+  if (!resp.ok || !tokens.access_token) throw new Error('QBO token refresh failed: ' + JSON.stringify(tokens));
+  await redis.set('qbo_refresh_token', tokens.refresh_token, { ex: 86400 * 90 }).catch(() => {});
+  await redis.set('qbo_access_token', tokens.access_token, { ex: 55 * 60 }).catch(() => {});
+  return tokens.access_token;
+}
+
+// ── Tool runner ───────────────────────────────────────────────────────────────
 async function runTool(name, input, ctx) {
+
+  // ── Shopify GraphQL ──────────────────────────────────────────────────────
+  if (name === 'shopify_graphql') {
+    const store = process.env.SHOPIFY_STORE;
+    const token = await shopifyToken();
+    if (!store || !token) return { error: 'Shopify is not connected. Check Admin → Shopify settings.' };
+
+    const body = { query: input.query };
+    if (input.variables) body.variables = input.variables;
+
+    const r = await fetch(`https://${store}/admin/api/2025-10/graphql.json`, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (j.errors) return { error: j.errors.map(e => e.message).join('; '), data: j.data ?? null };
+    return { data: j.data };
+  }
+
+  // ── QBO SQL query ────────────────────────────────────────────────────────
+  if (name === 'qbo_query') {
+    const realmId = process.env.QBO_REALM_ID;
+    if (!realmId) return { error: 'QBO is not connected. REALM_ID missing.' };
+
+    let token;
+    try { token = await qboToken(); }
+    catch (e) { return { error: String(e.message) }; }
+
+    const url = `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(input.sql)}&minorversion=65`;
+    const r = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    });
+    const j = await r.json();
+    if (!r.ok) return { error: JSON.stringify(j?.Fault ?? j).slice(0, 400) };
+    const qr = j?.QueryResponse ?? {};
+    // Return the first entity type found, with count
+    const entityKey = Object.keys(qr).find(k => k !== 'startPosition' && k !== 'maxResults' && k !== 'totalCount');
+    return {
+      totalCount: qr.totalCount ?? (entityKey ? (qr[entityKey]?.length ?? 0) : 0),
+      startPosition: qr.startPosition,
+      maxResults: qr.maxResults,
+      entity: entityKey || null,
+      records: entityKey ? qr[entityKey] : [],
+    };
+  }
+
+  // ── FileMaker tools ──────────────────────────────────────────────────────
   const mod = MODULES[input?.module];
   if (!mod) return { error: `Unknown module "${input?.module}". Valid: ${Object.keys(MODULES).join(', ')}` };
   const layout = encodeURIComponent(mod.layout);
@@ -89,7 +188,7 @@ async function runTool(name, input, ctx) {
     });
     const j = await r.json();
     if (j?.messages?.[0]?.code !== '0') {
-      if (j?.messages?.[0]?.code === '401') return { found: 0, records: [] }; // no match
+      if (j?.messages?.[0]?.code === '401') return { found: 0, records: [] };
       return { error: j?.messages?.[0]?.message || 'search failed', code: j?.messages?.[0]?.code };
     }
     const rows = j?.response?.data || [];
@@ -115,7 +214,6 @@ async function runTool(name, input, ctx) {
   return { error: `Unknown tool ${name}` };
 }
 
-// Trim empty/huge fields to keep tool results token-light.
 function slim(fieldData = {}) {
   const out = {};
   for (const [k, v] of Object.entries(fieldData)) {
@@ -125,19 +223,48 @@ function slim(fieldData = {}) {
   return out;
 }
 
+// ── Tool definitions ─────────────────────────────────────────────────────────
 const TOOLS = [
-  { name: 'get_schema', description: 'List the real field names on a module layout.', input_schema: { type: 'object', properties: { module: { type: 'string', enum: Object.keys(MODULES) } }, required: ['module'] } },
-  { name: 'search_records', description: 'Find records via a FileMaker query (array of field→value objects, OR-combined).', input_schema: { type: 'object', properties: { module: { type: 'string', enum: Object.keys(MODULES) }, query: { type: 'array', items: { type: 'object' }, description: 'FileMaker find query, e.g. [{"Organization":"*camp*"}]' }, limit: { type: 'number' } }, required: ['module', 'query'] } },
-  { name: 'get_record', description: 'Full detail for one record (incl. line items where applicable).', input_schema: { type: 'object', properties: { module: { type: 'string', enum: Object.keys(MODULES) }, recordId: { type: 'string' } }, required: ['module', 'recordId'] } },
+  {
+    name: 'get_schema',
+    description: 'List the real field names on a FileMaker module layout.',
+    input_schema: { type: 'object', properties: { module: { type: 'string', enum: Object.keys(MODULES) } }, required: ['module'] },
+  },
+  {
+    name: 'search_records',
+    description: 'Find FileMaker records via a query (array of field→value objects, OR-combined).',
+    input_schema: { type: 'object', properties: { module: { type: 'string', enum: Object.keys(MODULES) }, query: { type: 'array', items: { type: 'object' }, description: 'FileMaker find, e.g. [{"Organization":"*camp*"}]' }, limit: { type: 'number' } }, required: ['module', 'query'] },
+  },
+  {
+    name: 'get_record',
+    description: 'Full detail for one FileMaker record (incl. line items where applicable).',
+    input_schema: { type: 'object', properties: { module: { type: 'string', enum: Object.keys(MODULES) }, recordId: { type: 'string' } }, required: ['module', 'recordId'] },
+  },
+  {
+    name: 'shopify_graphql',
+    description: 'Run a read-only GraphQL query against the Shopify Admin API. Use for store products, orders, customers, inventory, and sales data.',
+    input_schema: { type: 'object', properties: { query: { type: 'string', description: 'GraphQL query string' }, variables: { type: 'object', description: 'Optional GraphQL variables' } }, required: ['query'] },
+  },
+  {
+    name: 'qbo_query',
+    description: 'Run a read-only SQL query against QuickBooks Online. Use for invoices, payments, items/services, customers, and accounting data.',
+    input_schema: { type: 'object', properties: { sql: { type: 'string', description: 'QBO SQL query, e.g. "SELECT * FROM Item WHERE CreateTime > \'2026-03-01\' MAXRESULTS 100"' } }, required: ['sql'] },
+  },
 ];
 
-// Human-readable status while a tool runs (streamed to the panel).
-const STATUS = { get_schema: 'Reading schema', search_records: 'Searching', get_record: 'Reading' };
+const STATUS = {
+  get_schema: 'Reading schema',
+  search_records: 'Searching',
+  get_record: 'Reading record',
+  shopify_graphql: 'Querying Shopify',
+  qbo_query: 'Querying QuickBooks',
+};
 function statusFor(name, input) {
-  return `${STATUS[name] || 'Looking up'} ${input?.module || ''}…`.replace(/\s+…/, '…');
+  const base = STATUS[name] || 'Looking up';
+  const detail = input?.module ? ` ${input.module}` : '';
+  return `${base}${detail}…`;
 }
 
-// Pull a human label for a record so a source chip reads nicely.
 function labelFor(module, f = {}) {
   if (module === 'inspections') return f.Organization || f['inspt_CNTCT__site::Name_Organization'] || `Inspection ${f._kpt__Inspection_ID || ''}`.trim();
   if (module === 'contacts') return f.zz__Display__ct || f.NameFirstLast || f.Name_Organization || 'Contact';
@@ -146,8 +273,6 @@ function labelFor(module, f = {}) {
   return 'Record';
 }
 
-// Records the agent actually touched become clickable sources. get_record is the
-// most precise signal; search hits are included (capped) for list-style answers.
 function collectSources(name, input, result, add) {
   const module = input?.module;
   if (name === 'get_record' && result?.recordId) {
@@ -155,9 +280,10 @@ function collectSources(name, input, result, add) {
   } else if (name === 'search_records' && Array.isArray(result?.records)) {
     for (const r of result.records.slice(0, 6)) add({ module, recordId: String(r.recordId), label: labelFor(module, r) });
   }
+  // Shopify and QBO results don't link to in-app records (no deep-link target yet)
 }
 
-// ── Handler (Server-Sent Events) ────────────────────────────────────────────
+// ── Handler (Server-Sent Events) ─────────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY is not set on the server.' });
@@ -206,7 +332,7 @@ export default async function handler(req, res) {
         convo.push({ role: 'user', content: results });
         continue;
       }
-      break; // end_turn — text already streamed
+      break;
     }
 
     if (sources.length) send({ type: 'sources', sources });
