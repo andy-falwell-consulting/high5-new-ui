@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { getRecord, prefetchRecord, updateRecord, invalidateRecord, patchCachedRecord } from '../api/filemaker';
+import { getRecord, prefetchRecord, updateRecord, invalidateRecord, patchCachedRecord, createRecord, addCachedRecord } from '../api/filemaker';
 import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
+import RecordFormModal from './RecordFormModal';
 import { listAttachments, uploadAttachment, deleteAttachment, generateAndAttachReport, downloadReport, getFreshAttachmentUrl } from '../api/inspectionAttachments';
 import './Inspections.css';
 
@@ -134,6 +135,7 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
   const [attStage, setAttStage] = useState(null); // progress label while a report runs
   const [attError, setAttError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const isResizing = useRef(false);
   const fileInputRef = useRef(null);
 
@@ -254,6 +256,23 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
     finally { setAttBusy(null); setAttStage(null); }
   }
 
+  // ── Create a new inspection ──
+  const createFields = [
+    { key: '_kft__Contact_ID', label: 'Site / Contact', type: 'contact', required: true },
+    { key: 'Date',            label: 'Date',           type: 'date', default: new Date().toLocaleDateString('en-US') },
+    { key: 'Inspectors Name', label: 'Inspector Name', type: 'text' },
+  ];
+
+  async function handleCreate(fieldData) {
+    const res = await createRecord(LAYOUT, fieldData);
+    const newId = res?.response?.recordId;
+    if (!newId) throw new Error(res?.messages?.[0]?.message || 'Could not create the record');
+    getRecord(LAYOUT, newId).then(d => {
+      const rec = d?.response?.data?.[0];
+      if (rec) { addCachedRecord(LAYOUT, CACHE_VERSION, rec); handleSelect(rec); onRecordSelect?.(rec.recordId); }
+    }).catch(() => {});
+  }
+
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
   const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
 
@@ -312,6 +331,7 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
               <div className="insp-sidebar-module">Inspections</div>
               <div className="insp-sidebar-count">{total ? `${total.toLocaleString()} inspections` : 'Loading…'}</div>
             </div>
+            <button className="insp-new-btn" onClick={() => setShowNew(true)} title="New inspection">＋ New</button>
           </div>
           <ListToolbar c={list} unit="inspections" />
         </div>
@@ -528,6 +548,16 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
           </>
         )}
       </main>
+
+      {showNew && (
+        <RecordFormModal
+          title="New Inspection"
+          fields={createFields}
+          submitLabel="Create inspection"
+          onCreate={handleCreate}
+          onClose={() => setShowNew(false)}
+        />
+      )}
     </div>
   );
 }

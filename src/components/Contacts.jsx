@@ -1,10 +1,22 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { getRecord, prefetchRecord, updateRecord } from '../api/filemaker';
+import { getRecord, prefetchRecord, updateRecord, createRecord, addCachedRecord } from '../api/filemaker';
 import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
+import RecordFormModal from './RecordFormModal';
 import './Contacts.css';
 
 const LAYOUT = 'Contacts_New';
+const CACHE_VERSION = 2;
+
+const CONTACT_CREATE_FIELDS = [
+  { key: 'Name_Organization', label: 'Name / Organization', type: 'text', required: true },
+  { key: 'Organization', label: 'Is an organization?', type: 'select', options: [{ value: '0', label: 'No (person)' }, { value: '1', label: 'Yes (organization)' }], default: '0' },
+  { key: 'Status', label: 'Status', type: 'select', options: ['Active', 'Inactive', 'Prospect'], default: 'Active' },
+  { key: 'Type', label: 'Type', type: 'text' },
+  { key: 'Industry', label: 'Industry', type: 'text' },
+  { key: 'Source', label: 'Source', type: 'text' },
+  { key: 'Notes', label: 'Notes', type: 'textarea', wide: true },
+];
 
 const STATUS_COLOR = {
   Active: '#22c55e',
@@ -156,7 +168,18 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
   const [tab, setTab] = useState('overview');
+  const [showNew, setShowNew] = useState(false);
   const isResizing = useRef(false);
+
+  async function handleCreate(fieldData) {
+    const res = await createRecord(LAYOUT, fieldData);
+    const newId = res?.response?.recordId;
+    if (!newId) throw new Error(res?.messages?.[0]?.message || 'Could not create the contact');
+    getRecord(LAYOUT, newId).then(d => {
+      const rec = d?.response?.data?.[0];
+      if (rec) { addCachedRecord(LAYOUT, CACHE_VERSION, rec); handleSelect(rec); onRecordSelect?.(rec.recordId); }
+    }).catch(() => {});
+  }
 
   const list = useListControls({
     records,
@@ -263,6 +286,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
               <div className="ct-sidebar-module">Contacts</div>
               <div className="ct-sidebar-count">{total ? `${total.toLocaleString()} contacts` : 'Loading…'}</div>
             </div>
+            <button className="ct-new-btn" onClick={() => setShowNew(true)} title="New contact">＋ New</button>
           </div>
           <ListToolbar c={list} unit="contacts" />
         </div>
@@ -458,6 +482,16 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
           </div>
         )}
       </main>
+
+      {showNew && (
+        <RecordFormModal
+          title="New Contact"
+          fields={CONTACT_CREATE_FIELDS}
+          submitLabel="Create contact"
+          onCreate={handleCreate}
+          onClose={() => setShowNew(false)}
+        />
+      )}
     </div>
   );
 }
