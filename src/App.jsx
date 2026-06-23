@@ -8,6 +8,7 @@ import Inspections from './components/Inspections'
 import Trainings from './components/Trainings'
 import OELookup from './components/OELookup'
 import ProjectsWorkspace from './components/ProjectsWorkspace'
+import Estimates from './components/Estimates'
 import Admin from './components/Admin'
 import CommandPalette from './components/CommandPalette'
 import AgentPanel from './components/AgentPanel'
@@ -19,6 +20,7 @@ import './components/CommandPalette.css'
 const MODULES = [
   { id: 'home', label: 'Home', icon: '⌂', group: 'Overview' },
   { id: 'contacts', label: 'Contacts', icon: '◉', group: 'Records' },
+  { id: 'estimates',   label: 'Estimates',   icon: '◧', group: 'Records' },
   { id: 'inspections', label: 'Inspections', icon: '⚑', group: 'Records' },
   { id: 'trainings', label: 'Trainings', icon: '◳', group: 'Records' },
   { id: 'oe-lookup', label: 'OE Lookup', icon: '◎', group: 'Records' },
@@ -67,6 +69,7 @@ export default function App() {
   useEffect(() => {
     getAllRecords(RCD_LAYOUT, { cacheVersion: RCD_CACHE_VERSION, findQuery: RCD_FIND_QUERY, sort: RCD_SORT }).catch(() => {})
     getAllRecords('Contacts_New', { cacheVersion: 2, batchSize: 100 }).catch(() => {})
+    getAllRecords('Estimates_New',   { cacheVersion: 1, batchSize: 100 }).catch(() => {})
     getAllRecords('Inspections_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {})
     getAllRecords('trainings_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {})
     getAllRecords('OELookup_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {})
@@ -150,6 +153,7 @@ export default function App() {
         <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} onToggleTheme={toggleTheme} onOpenPalette={() => setPaletteOpen(true)} user={user} onLogout={handleLogout} />
         {visited.has('home') && <div style={{ display: activeModule === 'home' ? 'contents' : 'none' }}><Home onOpen={handlePalettePick} onGoto={handleSelect} onOpenView={(m, v) => navigateTo(m, null, v)} onOpenPalette={() => setPaletteOpen(true)} /></div>}
         {visited.has('contacts') && <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts navTarget={navTarget} onClearNav={clearNavTarget} onNavigateTo={navigateTo} onRecordSelect={makeRecordSelectHandler('contacts')} /></div>}
+        {visited.has('estimates') && <div style={{ display: activeModule === 'estimates' ? 'contents' : 'none' }}><Estimates navTarget={navTarget} onClearNav={clearNavTarget} onRecordSelect={makeRecordSelectHandler('estimates')} /></div>}
         {visited.has('inspections') && <div style={{ display: activeModule === 'inspections' ? 'contents' : 'none' }}><Inspections navTarget={navTarget} onClearNav={clearNavTarget} onRecordSelect={makeRecordSelectHandler('inspections')} /></div>}
         {visited.has('trainings') && <div style={{ display: activeModule === 'trainings' ? 'contents' : 'none' }}><Trainings navTarget={navTarget} onClearNav={clearNavTarget} onRecordSelect={makeRecordSelectHandler('trainings')} /></div>}
         {visited.has('oe-lookup') && <div style={{ display: activeModule === 'oe-lookup' ? 'contents' : 'none' }}><OELookup navTarget={navTarget} onClearNav={clearNavTarget} onRecordSelect={makeRecordSelectHandler('oe-lookup')} /></div>}
