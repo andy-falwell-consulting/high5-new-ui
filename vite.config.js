@@ -16,6 +16,10 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/fmi': { target: fmpHost, changeOrigin: true, secure: true },
         '/Streaming_SSL': { target: fmpHost, changeOrigin: true, secure: true },
+        // FileMaker OAuth (Data API per-user login) — provider discovery + auth-url.
+        // Trailing slash on /oauth/ so it doesn't swallow /fmp-oauth-callback.html.
+        '/oauth/': { target: fmpHost, changeOrigin: true, secure: true },
+        '/fmws': { target: fmpHost, changeOrigin: true, secure: true },
       },
     },
   }

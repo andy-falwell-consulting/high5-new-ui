@@ -36,7 +36,61 @@ let sessionToken = null;
 let _tokenEnvId = null;
 let _tokenPromise = null; // shared in-flight auth, so a burst of calls mints one token
 
-async function getToken() {
+// ── Per-user OAuth session (for write attribution) ────────────────
+// When a user connects their FileMaker identity via Google OAuth (see
+// api/fmpOAuth.js), we hold a user-bound Data API token here and use it for
+// MUTATING calls only — so zz__Modified_By records the real person. Reads keep
+// using the shared admin token, so nothing breaks if a user's privilege set is
+// narrower than admin. Admin is always the fallback.
+let _userToken = null;
+let _userName = null;
+let _userEnvId = null;
+try {
+  _userToken = sessionStorage.getItem('fmp_user_token') || null;
+  _userName = sessionStorage.getItem('fmp_user_name') || null;
+  _userEnvId = sessionStorage.getItem('fmp_user_env') || null;
+} catch { /* sessionStorage unavailable */ }
+
+export function setFmpUserSession(token, name) {
+  const env = getCurrentEnv();
+  _userToken = token || null;
+  _userName = token ? (name || null) : null;
+  _userEnvId = token ? env.id : null;
+  try {
+    if (token) {
+      sessionStorage.setItem('fmp_user_token', token);
+      if (name) sessionStorage.setItem('fmp_user_name', name);
+      sessionStorage.setItem('fmp_user_env', env.id);
+    } else {
+      sessionStorage.removeItem('fmp_user_token');
+      sessionStorage.removeItem('fmp_user_name');
+      sessionStorage.removeItem('fmp_user_env');
+    }
+  } catch { /* ignore */ }
+}
+
+// Active user-write token, but only if it belongs to the current environment.
+function activeUserToken() {
+  if (!_userToken) return null;
+  return _userEnvId === getCurrentEnv().id ? _userToken : null;
+}
+
+export function getFmpUserName() { return activeUserToken() ? _userName : null; }
+export function hasFmpUserSession() { return !!activeUserToken(); }
+
+// Clear write auth after a 401 so the next attempt falls back to admin.
+function invalidateWriteAuth() {
+  if (_userToken) setFmpUserSession(null);
+  sessionToken = null;
+}
+
+async function getToken({ write = false } = {}) {
+  // Mutating calls prefer the user-bound token (correct attribution); reads and
+  // any fallback use the shared admin token.
+  if (write) {
+    const ut = activeUserToken();
+    if (ut) return ut;
+  }
   const env = getCurrentEnv();
   // Invalidate token if the environment changed
   if (sessionToken && _tokenEnvId !== env.id) {
@@ -354,7 +408,7 @@ export function invalidateRecord(layout, recordId) {
 }
 
 export async function createRecord(layout, fieldData) {
-  const token = await getToken();
+  const token = await getToken({ write: true });
   const env = getCurrentEnv();
   const res = await fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records`,
@@ -364,12 +418,12 @@ export async function createRecord(layout, fieldData) {
       body: JSON.stringify({ fieldData }),
     }
   );
-  if (res.status === 401) { sessionToken = null; return createRecord(layout, fieldData); }
+  if (res.status === 401) { invalidateWriteAuth(); return createRecord(layout, fieldData); }
   return res.json();
 }
 
 export async function addPortalRow(layout, recordId, portalName, rowData) {
-  const token = await getToken();
+  const token = await getToken({ write: true });
   const env = getCurrentEnv();
   const res = await fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
@@ -379,12 +433,12 @@ export async function addPortalRow(layout, recordId, portalName, rowData) {
       body: JSON.stringify({ portalData: { [portalName]: [rowData] } }),
     }
   );
-  if (res.status === 401) { sessionToken = null; return addPortalRow(layout, recordId, portalName, rowData); }
+  if (res.status === 401) { invalidateWriteAuth(); return addPortalRow(layout, recordId, portalName, rowData); }
   return res.json();
 }
 
 export async function updateRecord(layout, recordId, fieldData) {
-  const token = await getToken();
+  const token = await getToken({ write: true });
   const env = getCurrentEnv();
   const res = await fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
@@ -395,20 +449,20 @@ export async function updateRecord(layout, recordId, fieldData) {
     }
   );
   if (res.status === 401) {
-    sessionToken = null;
+    invalidateWriteAuth();
     return updateRecord(layout, recordId, fieldData);
   }
   return res.json();
 }
 
 export async function deleteRecord(layout, recordId) {
-  const token = await getToken();
+  const token = await getToken({ write: true });
   const env = getCurrentEnv();
   const res = await fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
     { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
   );
-  if (res.status === 401) { sessionToken = null; return deleteRecord(layout, recordId); }
+  if (res.status === 401) { invalidateWriteAuth(); return deleteRecord(layout, recordId); }
   return res.json();
 }
 
@@ -442,7 +496,7 @@ export async function findInLayout(layout, query, { sort, limit = 500 } = {}) {
 // Upload a file (Blob/File) into a container field on a record. Works through the
 // /fmi proxy in dev and prod (multipart body is forwarded).
 export async function uploadContainer(layout, recordId, field, file, filename) {
-  const token = await getToken();
+  const token = await getToken({ write: true });
   const env = getCurrentEnv();
   const fd = new FormData();
   fd.append('upload', file, filename || file.name || 'file');
@@ -450,6 +504,6 @@ export async function uploadContainer(layout, recordId, field, file, filename) {
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}/containers/${encodeURIComponent(field)}/1`,
     { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }
   );
-  if (res.status === 401) { sessionToken = null; return uploadContainer(layout, recordId, field, file, filename); }
+  if (res.status === 401) { invalidateWriteAuth(); return uploadContainer(layout, recordId, field, file, filename); }
   return res.json();
 }
