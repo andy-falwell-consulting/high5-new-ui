@@ -221,6 +221,33 @@ getAllRecords('MyLayout_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {
 - Common light background values: `#f8fafc` (main bg), `#ffffff` (sidebar/cards), `#e2e8f0` (borders).
 - Accent red: `#e8322a`.
 
+### Scrolling layout (containers, panes, lists)
+
+The module mounts under a `display: contents` wrapper in `App.jsx`, so the module's
+root `.xx-container` is a **direct flex child of the app root**. It must declare
+`flex: 1; min-height: 0` (NOT `height: 100%`, which collapses under `display: contents`
+and leaves the page unfilled).
+
+The detail pane is a flex column that scrolls:
+
+```css
+.xx-container { display: flex; flex: 1; min-height: 0; overflow: hidden; }   /* fills page */
+.xx-main      { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.xx-content   { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+.xx-section   { flex-shrink: 0; }   /* REQUIRED — see below */
+.xx-record-footer { flex-shrink: 0; }
+.xx-list-body { flex: 1; overflow-y: auto; }   /* sidebar list scroll wrapper */
+```
+
+**`flex-shrink: 0` on every direct child of a scrolling flex column is mandatory.**
+Flex items default to `flex-shrink: 1`, so on a content-heavy record the sections
+shrink to fit the pane instead of overflowing it — `overflow-y: auto` never triggers,
+the pane doesn't scroll, and `overflow: hidden` sections clip their own fields (looks
+like the section rendered empty). This bit both Estimates and RMI (v1.0.93).
+
+The sidebar list (`ListBody`) also needs its own `flex: 1; overflow-y: auto` wrapper,
+or only the first page is reachable.
+
 ---
 
 ## FileMaker API
