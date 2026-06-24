@@ -67,16 +67,28 @@ export default function App() {
       .catch(() => setAuthChecked(true)) // network error — allow through
   }, [])
 
-  // Pre-warm all module caches on startup so every tab loads instantly
+  // Pre-warm module caches so every tab loads instantly — but DEFER it so the
+  // module the user actually landed on gets the request scheduler to itself
+  // first (the scheduler is 4-concurrent; flooding it at t=0 starves the active
+  // list). We also skip the landing module's own layout — its useAllRecords is
+  // already fetching it.
   useEffect(() => {
-    getAllRecords(RCD_LAYOUT, { cacheVersion: RCD_CACHE_VERSION, findQuery: RCD_FIND_QUERY, sort: RCD_SORT }).catch(() => {})
-    getAllRecords('Contacts_New', { cacheVersion: 2, batchSize: 100 }).catch(() => {})
-    getAllRecords('Estimates_New',   { cacheVersion: 1, batchSize: 100 }).catch(() => {})
-    getAllRecords('Inspections_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {})
-    getAllRecords('RMI_New',         { cacheVersion: 1, batchSize: 100 }).catch(() => {})
-    getAllRecords('trainings_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {})
-    getAllRecords('OELookup_New', { cacheVersion: 1, batchSize: 100 }).catch(() => {})
-    getAllRecords('Products & Services_New', { cacheVersion: 4, batchSize: 100 }).catch(() => {})
+    const PREWARM = [
+      { id: 'projects',    layout: RCD_LAYOUT,                opts: { cacheVersion: RCD_CACHE_VERSION, findQuery: RCD_FIND_QUERY, sort: RCD_SORT } },
+      { id: 'contacts',    layout: 'Contacts_New',            opts: { cacheVersion: 2, batchSize: 100 } },
+      { id: 'estimates',   layout: 'Estimates_New',           opts: { cacheVersion: 1, batchSize: 100 } },
+      { id: 'inspections', layout: 'Inspections_New',         opts: { cacheVersion: 1, batchSize: 100 } },
+      { id: 'rmi',         layout: 'RMI_New',                 opts: { cacheVersion: 1, batchSize: 100 } },
+      { id: 'trainings',   layout: 'trainings_New',           opts: { cacheVersion: 1, batchSize: 100 } },
+      { id: 'oe-lookup',   layout: 'OELookup_New',            opts: { cacheVersion: 1, batchSize: 100 } },
+      { id: 'products',    layout: 'Products & Services_New', opts: { cacheVersion: 4, batchSize: 100 } },
+    ]
+    const landing = parseHash().moduleId
+    const t = setTimeout(() => {
+      PREWARM.filter(s => s.id !== landing)
+             .forEach(s => getAllRecords(s.layout, s.opts).catch(() => {}))
+    }, 2500)
+    return () => clearTimeout(t)
   }, [])
 
   // Global ⌘K / Ctrl+K to open the command palette

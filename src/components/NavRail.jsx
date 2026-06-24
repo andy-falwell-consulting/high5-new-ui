@@ -1,6 +1,8 @@
 /* global __APP_VERSION__ */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FMP_ENVIRONMENTS, getCurrentEnv, setCurrentEnvId } from '../config/fmpEnvironments'
+import { startFmpConnect, completeFmpConnect } from '../api/fmpOAuth'
+import { getFmpUserName, setFmpUserSession } from '../api/filemaker'
 
 const MIN_WIDTH = 48
 const COLLAPSED_WIDTH = 56
@@ -12,6 +14,11 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
   const [width, setWidth] = useState(DEFAULT_WIDTH)
   const [collapsed, setCollapsed] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [fmpName, setFmpName] = useState(() => getFmpUserName())
+  const [fmpBusy, setFmpBusy] = useState(false)
+  const [fmpError, setFmpError] = useState(null)
+  const [fmpRequestId, setFmpRequestId] = useState(null) // set while awaiting the pasted identifier
+  const [fmpIdentifier, setFmpIdentifier] = useState('')
   const dragStart = useRef(null)
   const userMenuRef = useRef(null)
   const light = theme === 'light'
@@ -75,6 +82,41 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
   function changeEnv(e) {
     setCurrentEnvId(e.target.value)
     window.location.reload()
+  }
+
+  async function connectFmp() {
+    setFmpBusy(true); setFmpError(null)
+    try {
+      const { requestId } = await startFmpConnect()
+      setFmpRequestId(requestId)   // now show the identifier-paste input
+    } catch (err) {
+      setFmpError(err.message || 'Sign-in failed')
+    } finally {
+      setFmpBusy(false)
+    }
+  }
+
+  async function finishFmp() {
+    setFmpBusy(true); setFmpError(null)
+    try {
+      const { name } = await completeFmpConnect(fmpRequestId, fmpIdentifier, displayName)
+      setFmpName(name || displayName)
+      setFmpRequestId(null); setFmpIdentifier('')
+    } catch (err) {
+      setFmpError(err.message || 'Sign-in failed')
+    } finally {
+      setFmpBusy(false)
+    }
+  }
+
+  function cancelFmp() {
+    setFmpRequestId(null); setFmpIdentifier(''); setFmpError(null)
+  }
+
+  function disconnectFmp() {
+    setFmpUserSession(null)
+    setFmpName(null)
+    setFmpError(null)
   }
 
   const navItem = (mod) => {
@@ -207,6 +249,42 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
               {userMenuOpen && (
                 <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 6, background: light ? '#ffffff' : '#13151c', border: `1px solid ${light ? '#e2e8f0' : '#1e2130'}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.3)', zIndex: 100 }}>
                   {user?.email && <div style={{ padding: '8px 12px', fontSize: 12, color: c.sub, borderBottom: `1px solid ${light ? '#e2e8f0' : '#1e2130'}` }}>{user.email}</div>}
+
+                  {/* FileMaker write attribution */}
+                  <div style={{ padding: '8px 12px', borderBottom: `1px solid ${light ? '#e2e8f0' : '#1e2130'}` }}>
+                    <div style={{ fontSize: 11, color: c.mutedLabel, marginBottom: 4, letterSpacing: '0.04em' }}>FILEMAKER EDITS</div>
+                    {fmpName ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 13, color: c.textActive, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmpName}</span>
+                        <button onClick={disconnectFmp}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: c.sub }}>Disconnect</button>
+                      </div>
+                    ) : fmpRequestId ? (
+                      <div>
+                        <div style={{ fontSize: 11, color: c.sub, marginBottom: 5, lineHeight: 1.4 }}>
+                          In the popup, copy the <b>identifier</b> value and paste it here:
+                        </div>
+                        <input value={fmpIdentifier} onChange={e => setFmpIdentifier(e.target.value)} placeholder="identifier"
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '5px 7px', marginBottom: 5, fontSize: 12, fontFamily: 'monospace', background: light ? '#fff' : '#0f1117', color: c.textActive, border: `1px solid ${c.footerBorder}`, borderRadius: 5, outline: 'none' }} />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={finishFmp} disabled={fmpBusy || !fmpIdentifier.trim()}
+                            style={{ flex: 1, padding: '5px 8px', background: '#e8322a', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600, opacity: (fmpBusy || !fmpIdentifier.trim()) ? 0.5 : 1 }}>
+                            {fmpBusy ? 'Connecting…' : 'Finish'}
+                          </button>
+                          <button onClick={cancelFmp}
+                            style={{ padding: '5px 8px', background: 'none', border: `1px solid ${c.footerBorder}`, borderRadius: 5, cursor: 'pointer', fontSize: 12, color: c.sub }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={connectFmp} disabled={fmpBusy}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 8px', background: c.footerBtn, border: `1px solid ${c.footerBorder}`, borderRadius: 6, cursor: fmpBusy ? 'default' : 'pointer', fontSize: 13, color: c.text, textAlign: 'left' }}>
+                        {fmpBusy ? 'Opening sign-in…' : 'Attribute my edits to me'}
+                      </button>
+                    )}
+                    {fmpError && <div style={{ fontSize: 11, color: '#e8322a', marginTop: 5, wordBreak: 'break-word' }}>{fmpError}</div>}
+                  </div>
+
                   <button onClick={onToggleTheme}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: c.text, textAlign: 'left' }}>
                     {light ? '🌙' : '☀️'} {light ? 'Dark mode' : 'Light mode'}

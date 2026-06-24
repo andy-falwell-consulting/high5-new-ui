@@ -31,6 +31,10 @@
   gap: 12px;
   margin-bottom: 14px;
 }
+.insp-new-btn { margin-left: auto; flex-shrink: 0; padding: 5px 10px; border-radius: 6px; border: 1px solid #2d3148; background: #1e2130; color: #cbd5e1; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+.insp-new-btn:hover { background: #e8322a; border-color: #e8322a; color: #fff; }
+[data-theme="light"] .insp-new-btn { background: #f1f5f9; border-color: #e2e8f0; color: #334155; }
+[data-theme="light"] .insp-new-btn:hover { background: #e8322a; border-color: #e8322a; color: #fff; }
 
 .insp-sidebar-logo {
   width: 36px;

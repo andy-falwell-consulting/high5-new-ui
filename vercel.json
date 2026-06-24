@@ -2,6 +2,8 @@
   "alias": ["high5-new-ui.vercel.app"],
   "rewrites": [
     { "source": "/fmi/:path*", "destination": "/api/proxy?prefix=fmi&path=:path*" },
-    { "source": "/Streaming_SSL/:path*", "destination": "/api/proxy?prefix=Streaming_SSL&path=:path*" }
+    { "source": "/Streaming_SSL/:path*", "destination": "/api/proxy?prefix=Streaming_SSL&path=:path*" },
+    { "source": "/oauth/:path*", "destination": "/api/proxy?prefix=oauth&path=:path*" },
+    { "source": "/fmws/:path*", "destination": "/api/proxy?prefix=fmws&path=:path*" }
   ]
 }
