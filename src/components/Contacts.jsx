@@ -10,7 +10,7 @@ const CACHE_VERSION = 2;
 
 const CONTACT_CREATE_FIELDS = [
   { key: 'Name_Organization', label: 'Name / Organization', type: 'text', required: true },
-  { key: 'Organization', label: 'Is an organization?', type: 'select', options: [{ value: '0', label: 'No (person)' }, { value: '1', label: 'Yes (organization)' }], default: '0' },
+  { key: 'Organization', label: 'Is an organization?', type: 'select', options: [{ value: '1', label: 'Yes (organization)' }, { value: '0', label: 'No (person)' }], default: '1' },
   { key: 'Status', label: 'Status', type: 'select', options: ['Active', 'Inactive', 'Prospect'], default: 'Active' },
   { key: 'Type', label: 'Type', type: 'text' },
   { key: 'Industry', label: 'Industry', type: 'text' },
@@ -355,7 +355,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
                 >
                   <span className="ct-item-dot" style={{ background: color }} />
                   <div className="ct-item-text">
-                    <div className="ct-item-name">{r.fieldData.zz__Display__ct || '—'}</div>
+                    <div className="ct-item-name">{r.fieldData.zz__Display__ct || r.fieldData.Name_Organization || '—'}</div>
                     <div className="ct-item-sub">{r.fieldData['cntct_ADDR::zz__Display_Single_Line_No_Zip__ct'] || r.fieldData.Type || ''}</div>
                   </div>
                 </div>
@@ -390,10 +390,10 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
           <div className="ct-profile">
             {/* ── Hero ── */}
             <div className="ct-hero">
-              <div className="ct-avatar">{initialsOf(f.zz__Display__ct)}</div>
+              <div className="ct-avatar">{initialsOf(f.zz__Display__ct || f.Name_Organization)}</div>
               <div className="ct-hero-main">
                 <div className="ct-hero-titlerow">
-                  <h1 className="ct-hero-name">{f.zz__Display__ct || '—'}</h1>
+                  <h1 className="ct-hero-name">{f.zz__Display__ct || f.Name_Organization || '—'}</h1>
                   {f.Status && (
                     <span className="ct-chip status" style={{ background: (STATUS_COLOR[f.Status] || '#64748b') + '22', color: STATUS_COLOR[f.Status] || '#64748b', borderColor: (STATUS_COLOR[f.Status] || '#64748b') + '44' }}>{f.Status}</span>
                   )}
