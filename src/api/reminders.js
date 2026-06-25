@@ -23,12 +23,18 @@ async function call(action, payload = {}) {
 
 function mapEvent(ev) {
   const ext = ev.extendedProperties?.private || {};
+  // Lead time (minutes before start) for the in-app "in X" heads-up toast,
+  // derived from the event's own reminder overrides so it matches what the user
+  // picked in the modal. 0 = "at time of event" (no heads-up, just the "now").
+  const ov = ev.reminders?.overrides || [];
+  const lead = ov.length ? Math.max(0, ...ov.map(o => o.minutes ?? 0)) : (ev.reminders?.useDefault ? 10 : 0);
   return {
     id: ev.id,
     title: ev.summary || '(no title)',
     notes: ev.description || '',
     start: ev.start?.dateTime || ev.start?.date || null,
     end: ev.end?.dateTime || ev.end?.date || null,
+    lead,
     recordType: ext.recordType || null,
     recordId: ext.recordId || null,
     recordLabel: ext.recordLabel || '',

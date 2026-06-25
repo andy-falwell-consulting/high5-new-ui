@@ -11,6 +11,7 @@ import ProjectsWorkspace from './components/ProjectsWorkspace'
 import Estimates from './components/Estimates'
 import RMI from './components/RMI'
 import Reminders from './components/Reminders'
+import ReminderToaster from './components/ReminderToaster'
 import Admin from './components/Admin'
 import CommandPalette from './components/CommandPalette'
 import AgentPanel from './components/AgentPanel'
@@ -213,6 +214,7 @@ export default function App() {
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onPick={handlePalettePick} modules={MODULES} theme={theme} onToggleTheme={toggleTheme} />
         {!agentOpen && <button className="agent-fab" onClick={() => setAgentOpen(true)} title="Ask the assistant">✦</button>}
         <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} onOpenRecord={(m, id) => navigateTo(m, id)} />
+        <ReminderToaster onOpen={r => (r.recordType && r.recordId) ? navigateTo(r.recordType, r.recordId) : handleSelect('reminders')} />
     </div>
   )
 }
