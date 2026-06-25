@@ -78,7 +78,9 @@ export default function App() {
   // module the user actually landed on gets the request scheduler to itself
   // first (the scheduler is 4-concurrent; flooding it at t=0 starves the active
   // list). We also skip the landing module's own layout — its useAllRecords is
-  // already fetching it.
+  // already fetching it. The remaining layouts are warmed through a small
+  // concurrency pool (PREWARM_CONCURRENCY) rather than all at once, so cold load
+  // never has ~7 parallel batch streams fighting the active list for bandwidth.
   useEffect(() => {
     const PREWARM = [
       { id: 'projects',    layout: RCD_LAYOUT,                opts: { cacheVersion: RCD_CACHE_VERSION, findQuery: RCD_FIND_QUERY, sort: RCD_SORT } },
@@ -90,12 +92,20 @@ export default function App() {
       { id: 'oe-lookup',   layout: 'OELookup_New',            opts: { cacheVersion: 1, batchSize: 100 } },
       { id: 'products',    layout: 'Products & Services_New', opts: { cacheVersion: 4, batchSize: 100 } },
     ]
+    const PREWARM_CONCURRENCY = 2
     const landing = parseHash().moduleId
+    let cancelled = false
     const t = setTimeout(() => {
-      PREWARM.filter(s => s.id !== landing)
-             .forEach(s => getAllRecords(s.layout, s.opts).catch(() => {}))
+      const queue = PREWARM.filter(s => s.id !== landing)
+      let next = 0
+      const pump = () => {
+        if (cancelled || next >= queue.length) return
+        const s = queue[next++]
+        getAllRecords(s.layout, s.opts).catch(() => {}).finally(pump)
+      }
+      for (let i = 0; i < PREWARM_CONCURRENCY; i++) pump()
     }, 2500)
-    return () => clearTimeout(t)
+    return () => { cancelled = true; clearTimeout(t) }
   }, [])
 
   // Global ⌘K / Ctrl+K to open the command palette
