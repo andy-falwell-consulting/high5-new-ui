@@ -9,21 +9,39 @@ const GMAIL_SEND = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send
 
 const wrap76 = b64 => b64.replace(/.{1,76}/g, '$&\r\n').trimEnd();
 
+// Email headers are ASCII-only. Encode any value with non-ASCII characters as an
+// RFC 2047 base64 encoded-word so UTF-8 (em-dashes, accents, emoji) renders
+// correctly instead of mojibake. Pure-ASCII values pass through untouched.
+const encodeHeader = value => {
+  const s = String(value ?? '');
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(s)) return s;
+  return `=?UTF-8?B?${Buffer.from(s, 'utf-8').toString('base64')}?=`;
+};
+
+// A text/plain body with non-ASCII must declare an 8-bit-safe transfer encoding.
+// Base64-encode it so UTF-8 survives transport intact.
+const textPart = bodyText => [
+  'Content-Type: text/plain; charset=utf-8',
+  'Content-Transfer-Encoding: base64', '',
+  wrap76(Buffer.from(String(bodyText ?? ''), 'utf-8').toString('base64')),
+].join('\r\n');
+
 function buildMime({ from, to, cc, bcc, subject, bodyText, inReplyTo, attachments }) {
   const headers = [
     `From: ${from}`,
     `To: ${to}`,
     cc ? `Cc: ${cc}` : null,
     bcc ? `Bcc: ${bcc}` : null,
-    `Subject: ${subject}`,
+    `Subject: ${encodeHeader(subject)}`,
     inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
     inReplyTo ? `References: ${inReplyTo}` : null,
     'MIME-Version: 1.0',
   ].filter(Boolean);
 
   if (!attachments?.length) {
-    const msg = [...headers, 'Content-Type: text/plain; charset=utf-8', '', bodyText || ''].join('\r\n');
-    return Buffer.from(msg).toString('base64url');
+    const msg = [...headers, textPart(bodyText)].join('\r\n');
+    return Buffer.from(msg, 'utf-8').toString('base64url');
   }
 
   const boundary = 'mix_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -32,8 +50,7 @@ function buildMime({ from, to, cc, bcc, subject, bodyText, inReplyTo, attachment
       ...headers,
       `Content-Type: multipart/mixed; boundary="${boundary}"`, '',
       `--${boundary}`,
-      'Content-Type: text/plain; charset=utf-8', '',
-      bodyText || '',
+      textPart(bodyText),
     ].join('\r\n'),
   ];
   for (const a of attachments) {
@@ -46,7 +63,7 @@ function buildMime({ from, to, cc, bcc, subject, bodyText, inReplyTo, attachment
     ].join('\r\n'));
   }
   parts.push(`--${boundary}--`);
-  return Buffer.from(parts.join('\r\n')).toString('base64url');
+  return Buffer.from(parts.join('\r\n'), 'utf-8').toString('base64url');
 }
 
 export default async function handler(req, res) {
