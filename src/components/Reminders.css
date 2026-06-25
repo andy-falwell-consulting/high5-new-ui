@@ -6,6 +6,9 @@
 .rm-bell { font-size: 18px; }
 .rm-title { font-size: 20px; font-weight: 700; color: #f1f5f9; }
 .rm-count { font-size: 13px; color: #64748b; }
+.rm-top-actions { display: flex; align-items: center; gap: 8px; }
+.rm-sound { background: #13151c; border: 1px solid #1e2130; border-radius: 8px; padding: 7px 10px; font-size: 14px; line-height: 1; cursor: pointer; }
+.rm-sound:hover { border-color: #2d3148; }
 .rm-new { background: #e8322a; color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .rm-new:hover { background: #c72820; }
 
@@ -60,7 +63,7 @@
 /* Light theme */
 [data-theme="light"] .rm-container { background: #f8fafc; color: #0f172a; }
 [data-theme="light"] .rm-title { color: #0f172a; }
-[data-theme="light"] .rm-segment, [data-theme="light"] .rm-search { background: #ffffff; border-color: #e2e8f0; }
+[data-theme="light"] .rm-segment, [data-theme="light"] .rm-search, [data-theme="light"] .rm-sound { background: #ffffff; border-color: #e2e8f0; }
 [data-theme="light"] .rm-segment button.active { background: #eef2f7; color: #0f172a; }
 [data-theme="light"] .rm-row { background: #ffffff; border-color: #e2e8f0; }
 [data-theme="light"] .rm-row-title { color: #0f172a; }

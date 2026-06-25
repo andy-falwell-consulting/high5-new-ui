@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { listReminders, completeReminder, snoozeReminder, subscribeReminders } from '../api/reminders'
+import { playReminderChime } from '../utils/chime'
 import './ReminderToaster.css'
 
 // In-app toast notifications for reminders. Two toasts per reminder while the
@@ -62,6 +63,7 @@ export default function ReminderToaster({ onOpen }) {
     const now = Date.now()
     const fired = firedRef.current
     let changed = false
+    let sawNow = false
     for (const r of listRef.current) {
       if (r.done || !r.start) continue
       const start = new Date(r.start).getTime()
@@ -74,10 +76,13 @@ export default function ReminderToaster({ onOpen }) {
       }
       const nowKey = `${r.id}|now|${r.start}`
       if (now >= start && now < start + NOW_GRACE_MS && !fired[nowKey]) {
-        fired[nowKey] = now; changed = true; push(nowKey, 'now', r)
+        fired[nowKey] = now; changed = true; sawNow = true; push(nowKey, 'now', r)
       }
     }
-    if (changed) firedRef.current = saveFired(fired)
+    if (changed) {
+      firedRef.current = saveFired(fired)
+      playReminderChime(sawNow ? 'now' : 'lead') // one chime per batch, "now" wins
+    }
   }, [push])
 
   useEffect(() => {

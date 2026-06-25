@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { listReminders, bucketReminders, completeReminder, snoozeReminder, deleteReminder, subscribeReminders } from '../api/reminders'
+import { isReminderSoundOn, setReminderSoundOn, playReminderChime } from '../utils/chime'
 import ReminderModal from './ReminderModal'
 import './Reminders.css'
 
@@ -35,6 +36,13 @@ export default function Reminders({ navTarget, onClearNav, onNavigateTo } = {}) 
   const [query, setQuery] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [soundOn, setSoundOn] = useState(isReminderSoundOn)
+
+  function toggleSound() {
+    const next = !soundOn
+    setSoundOn(next); setReminderSoundOn(next)
+    if (next) playReminderChime('lead') // brief preview when turning it on
+  }
 
   const load = useCallback(() => {
     return listReminders()
@@ -76,7 +84,12 @@ export default function Reminders({ navTarget, onClearNav, onNavigateTo } = {}) 
             <span className="rm-title">Reminders</span>
             <span className="rm-count">{openTotal} open{dueNow ? ` · ${dueNow} due` : ''}</span>
           </div>
-          <button className="rm-new" onClick={() => setCreateOpen(true)}>＋ New reminder</button>
+          <div className="rm-top-actions">
+            <button className="rm-sound" title={soundOn ? 'Sound on — click to mute' : 'Sound off — click to unmute'} aria-label={soundOn ? 'Mute reminder sound' : 'Unmute reminder sound'} onClick={toggleSound}>
+              {soundOn ? '🔔' : '🔕'}
+            </button>
+            <button className="rm-new" onClick={() => setCreateOpen(true)}>＋ New reminder</button>
+          </div>
         </header>
 
         <div className="rm-controls">
