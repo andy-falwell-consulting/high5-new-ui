@@ -10,16 +10,19 @@ import OELookup from './components/OELookup'
 import ProjectsWorkspace from './components/ProjectsWorkspace'
 import Estimates from './components/Estimates'
 import RMI from './components/RMI'
+import Reminders from './components/Reminders'
 import Admin from './components/Admin'
 import CommandPalette from './components/CommandPalette'
 import AgentPanel from './components/AgentPanel'
 import { getAllRecords, ensureFmpUserSession } from './api/filemaker'
+import { listReminders, dueCount, subscribeReminders } from './api/reminders'
 import { RCD_LAYOUT, RCD_CACHE_VERSION, RCD_FIND_QUERY, RCD_SORT } from './config/ccsCache'
 import './light-theme.css'
 import './components/CommandPalette.css'
 
 const MODULES = [
   { id: 'home', label: 'Home', icon: '⌂', group: 'Overview' },
+  { id: 'reminders', label: 'Reminders', icon: '⏰', group: 'Overview' },
   { id: 'contacts', label: 'Contacts', icon: '◉', group: 'Records' },
   { id: 'estimates',   label: 'Estimates',   icon: '◧', group: 'Records' },
   { id: 'inspections', label: 'Inspections', icon: '⚑', group: 'Records' },
@@ -54,6 +57,7 @@ export default function App() {
   const [agentOpen, setAgentOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const [reminderDue, setReminderDue] = useState(0)
 
   // Auth check — /api/me returns 401 if not logged in, 404 in local dev (pass through)
   useEffect(() => {
@@ -72,6 +76,18 @@ export default function App() {
         }
       })
       .catch(() => setAuthChecked(true)) // network error — allow through
+  }, [])
+
+  // Keep the nav "Reminders" badge (overdue + due today) current. Refreshes on
+  // any reminder mutation (via subscribeReminders) and every 5 min. No-ops on
+  // localhost where serverless functions aren't available.
+  useEffect(() => {
+    let alive = true
+    const load = () => listReminders().then(items => { if (alive) setReminderDue(dueCount(items)) }).catch(() => {})
+    load()
+    const unsub = subscribeReminders(load)
+    const t = setInterval(load, 5 * 60 * 1000)
+    return () => { alive = false; unsub(); clearInterval(t) }
   }, [])
 
   // Pre-warm module caches so every tab loads instantly — but DEFER it so the
@@ -182,8 +198,9 @@ export default function App() {
 
   return (
     <div data-theme={theme} style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-        <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} onToggleTheme={toggleTheme} onOpenPalette={() => setPaletteOpen(true)} user={user} onLogout={handleLogout} />
+        <NavRail modules={MODULES} activeId={activeModule} onSelect={handleSelect} theme={theme} onToggleTheme={toggleTheme} onOpenPalette={() => setPaletteOpen(true)} user={user} onLogout={handleLogout} badges={{ reminders: reminderDue }} />
         {visited.has('home') && <div style={{ display: activeModule === 'home' ? 'contents' : 'none' }}><Home onOpen={handlePalettePick} onGoto={handleSelect} onOpenView={(m, v) => navigateTo(m, null, v)} onOpenPalette={() => setPaletteOpen(true)} /></div>}
+        {visited.has('reminders') && <div style={{ display: activeModule === 'reminders' ? 'contents' : 'none' }}><Reminders navTarget={navTarget} onClearNav={clearNavTarget} onNavigateTo={navigateTo} /></div>}
         {visited.has('contacts') && <div style={{ display: activeModule === 'contacts' ? 'contents' : 'none' }}><Contacts navTarget={navTarget} onClearNav={clearNavTarget} onNavigateTo={navigateTo} onRecordSelect={makeRecordSelectHandler('contacts')} /></div>}
         {visited.has('estimates') && <div style={{ display: activeModule === 'estimates' ? 'contents' : 'none' }}><Estimates navTarget={navTarget} onClearNav={clearNavTarget} onRecordSelect={makeRecordSelectHandler('estimates')} /></div>}
         {visited.has('inspections') && <div style={{ display: activeModule === 'inspections' ? 'contents' : 'none' }}><Inspections navTarget={navTarget} onClearNav={clearNavTarget} onRecordSelect={makeRecordSelectHandler('inspections')} /></div>}
