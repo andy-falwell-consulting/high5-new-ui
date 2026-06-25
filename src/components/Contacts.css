@@ -341,6 +341,14 @@
   background: #1e293b;
   color: #e2e8f0;
 }
+.ct-btn-email {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid #334155;
+  background: transparent; color: #94a3b8; font-size: 15px; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ct-btn-email:hover { background: #e8322a; border-color: #e8322a; color: #fff; }
+[data-theme="light"] .ct-btn-email { border-color: #e2e8f0; color: #5e6b7c; }
+[data-theme="light"] .ct-btn-email:hover { background: #e8322a; border-color: #e8322a; color: #fff; }
 
 .ct-btn-save {
   padding: 6px 16px;

@@ -330,7 +330,7 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
     try {
       const env = getCurrentEnv();
       const res = await fetch(
-        `/api/upload-image?recordId=${selected.recordId}&layout=${encodeURIComponent(LAYOUT)}&db=${encodeURIComponent(env.db)}`,
+        `/api/image?recordId=${selected.recordId}&layout=${encodeURIComponent(LAYOUT)}&db=${encodeURIComponent(env.db)}`,
         { method: 'POST', headers: { 'Content-Type': file.type, 'X-Filename': file.name }, body: file }
       );
       const data = await res.json();

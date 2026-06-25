@@ -3,6 +3,7 @@ import { getRecord, prefetchRecord, updateRecord, createRecord, addCachedRecord,
 import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
 import RecordFormModal from './RecordFormModal';
+import ComposeEmail from './ComposeEmail';
 import './Contacts.css';
 
 const LAYOUT = 'Contacts_New';
@@ -200,6 +201,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
   const [tab, setTab] = useState('overview');
   const [showNew, setShowNew] = useState(false);
   const [addMethod, setAddMethod] = useState(null); // 'phone' | 'email' | 'address'
+  const [composeOpen, setComposeOpen] = useState(false);
   const isResizing = useRef(false);
 
   // Add a phone/email/address row to the selected contact, then refresh detail.
@@ -409,6 +411,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
               <div className="ct-hero-actions">
                 {saveStatus === 'saved' && <span className="ct-status saved">✓ Saved</span>}
                 {saveStatus === 'error' && <span className="ct-status error">✗ Failed</span>}
+                {!dataEditing && <button className="ct-btn-email" onClick={() => setComposeOpen(true)}>✉ Email</button>}
                 {!dataEditing ? (
                   <button className="ct-btn-edit" onClick={() => setDataEditing(true)}>✎ Edit</button>
                 ) : (
@@ -553,6 +556,16 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
           submitLabel="Add"
           onCreate={handleAddMethod}
           onClose={() => setAddMethod(null)}
+        />
+      )}
+
+      {composeOpen && selected && (
+        <ComposeEmail
+          initial={{
+            to: email0?.['cntct_INADR::Address'] || '',
+            subject: `High 5 Adventure — ${f?.zz__Display__ct || f?.Name_Organization || ''}`.trim(),
+          }}
+          onClose={() => setComposeOpen(false)}
         />
       )}
     </div>
