@@ -345,6 +345,25 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
     } finally { setUploadingImage(false); }
   };
 
+  // Optimistically patch the selected record's BOM rows for instant UI feedback,
+  // independent of the network / HTTP cache. reconcileBom() refetches the true
+  // server state (and updates the list cache) right after.
+  const patchBomRows = useCallback((recordId, updater) => {
+    setSelected(prev => {
+      if (!prev || prev.recordId !== recordId) return prev;
+      const rows = prev.portalData?.['Portal__Bill_of_Materials 4'] || [];
+      return { ...prev, portalData: { ...prev.portalData, 'Portal__Bill_of_Materials 4': updater(rows) } };
+    });
+  }, []);
+  const reconcileBom = useCallback(async (recordId) => {
+    invalidateRecord(LAYOUT, recordId);
+    try {
+      const fresh = await getRecord(LAYOUT, recordId);
+      const rec = fresh?.response?.data?.[0];
+      if (rec) setSelected(prev => (prev?.recordId === recordId ? rec : prev));
+    } catch { /* keep optimistic state on failure */ }
+  }, []);
+
   // Add a BOM component by creating a line-item record linking the parent
   // assembly and the component item via their foreign keys. (Writing the
   // component Name through the portal relationship fails — a new line has no
@@ -356,57 +375,60 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
       alert('Could not add component: missing item ID.');
       return;
     }
+    const recordId = selected.recordId;
+    const q = Number(quantity);
+    // Show the row immediately; the refetch swaps in the real one (id, exact total).
+    patchBomRows(recordId, rows => [...rows, {
+      recordId: `tmp-${Date.now()}`,
+      'item_itmli_ITEM__billOfMaterials::Name': item.fieldData.Name,
+      'item_itmli_ITEM__billOfMaterials::Cost': item.fieldData.Cost,
+      'item_ITMLI__billOfMaterials::Quantity': q,
+      'item_ITMLI__billOfMaterials::Total': Number(item.fieldData.Unit_Price || 0) * q,
+    }]);
+    setShowBomPicker(false);
     const result = await createRecord('Item_ITMLI_billOfMaterials', {
       '_kft__Item_ID__parent': parentItemId,
       '_kft__Item_ID__assemblyLine': componentItemId,
-      'Quantity': Number(quantity),
+      'Quantity': q,
     });
-    if (result.messages?.[0]?.code === '0') {
-      invalidateRecord(LAYOUT, selected.recordId); // new line-item won't bust parent cache
-      const fresh = await getRecord(LAYOUT, selected.recordId);
-      setSelected(fresh.response.data[0]);
-      setShowBomPicker(false);
-    } else {
-      alert(`Could not add component: ${result.messages?.[0]?.message || 'unknown error'}`);
-    }
-  }, [selected]);
+    if (result.messages?.[0]?.code !== '0') alert(`Could not add component: ${result.messages?.[0]?.message || 'unknown error'}`);
+    await reconcileBom(recordId);
+  }, [selected, patchBomRows, reconcileBom]);
 
   // Edit a BOM line quantity. The portal row carries its own recordId.
   const handleUpdateBomQty = useCallback(async (row, qty) => {
     const q = Number(qty);
     if (!Number.isFinite(q) || q <= 0) return;
-    if (q === Number(row['item_ITMLI__billOfMaterials::Quantity'])) return;
+    const oldQ = Number(row['item_ITMLI__billOfMaterials::Quantity']);
+    if (q === oldQ) return;
+    const recordId = selected.recordId;
     setBomBusy(row.recordId);
+    const unit = oldQ > 0 ? Number(row['item_ITMLI__billOfMaterials::Total'] || 0) / oldQ : 0;
+    patchBomRows(recordId, rows => rows.map(r => r.recordId === row.recordId
+      ? { ...r, 'item_ITMLI__billOfMaterials::Quantity': q, 'item_ITMLI__billOfMaterials::Total': unit * q }
+      : r));
     try {
-      const result = await updatePortalRow(LAYOUT, selected.recordId, 'Portal__Bill_of_Materials 4', row.recordId, {
+      const result = await updatePortalRow(LAYOUT, recordId, 'Portal__Bill_of_Materials 4', row.recordId, {
         'item_ITMLI__billOfMaterials::Quantity': q,
       });
-      if (result.messages?.[0]?.code === '0') {
-        invalidateRecord(LAYOUT, selected.recordId);
-        const fresh = await getRecord(LAYOUT, selected.recordId);
-        setSelected(fresh.response.data[0]);
-      } else {
-        alert(`Could not update quantity: ${result.messages?.[0]?.message || 'unknown error'}`);
-      }
+      if (result.messages?.[0]?.code !== '0') alert(`Could not update quantity: ${result.messages?.[0]?.message || 'unknown error'}`);
+      await reconcileBom(recordId);
     } finally { setBomBusy(null); }
-  }, [selected]);
+  }, [selected, patchBomRows, reconcileBom]);
 
   // Remove a BOM line. deleteRelated targets the line-item table occurrence.
   const handleRemoveBomItem = useCallback(async (row) => {
     const name = row['item_itmli_ITEM__billOfMaterials::Name'] || 'this component';
     if (!window.confirm(`Remove ${name} from the bill of materials?`)) return;
+    const recordId = selected.recordId;
     setBomBusy(row.recordId);
+    patchBomRows(recordId, rows => rows.filter(r => r.recordId !== row.recordId));
     try {
-      const result = await deletePortalRow(LAYOUT, selected.recordId, 'item_ITMLI__billOfMaterials', row.recordId);
-      if (result.messages?.[0]?.code === '0') {
-        invalidateRecord(LAYOUT, selected.recordId);
-        const fresh = await getRecord(LAYOUT, selected.recordId);
-        setSelected(fresh.response.data[0]);
-      } else {
-        alert(`Could not remove component: ${result.messages?.[0]?.message || 'unknown error'}`);
-      }
+      const result = await deletePortalRow(LAYOUT, recordId, 'item_ITMLI__billOfMaterials', row.recordId);
+      if (result.messages?.[0]?.code !== '0') alert(`Could not remove component: ${result.messages?.[0]?.message || 'unknown error'}`);
+      await reconcileBom(recordId);
     } finally { setBomBusy(null); }
-  }, [selected]);
+  }, [selected, patchBomRows, reconcileBom]);
 
   const f = selected?.fieldData || {};
   const portalData = selected?.portalData;

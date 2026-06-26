@@ -420,7 +420,10 @@ export async function getRecord(layout, recordId) {
   const env = getCurrentEnv();
   const res = await _scheduledFetch(_HIGH, () => fetch(
     `${getBasePath()}/fmi/data/v2/databases/${env.db}/layouts/${encodeURIComponent(layout)}/records/${recordId}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    // no-store: this single-record URL is constant, so the browser HTTP cache
+    // would otherwise serve a stale copy after a related-row (portal) edit —
+    // making BOM add/edit/remove look like nothing happened until a full reload.
+    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
   ));
   if (res.status === 401) {
     sessionToken = null;
