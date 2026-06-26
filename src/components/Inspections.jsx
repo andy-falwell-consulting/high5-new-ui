@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { getRecord, prefetchRecord, updateRecord, invalidateRecord, patchCachedRecord, createRecord, addCachedRecord } from '../api/filemaker';
 import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
+import RecordSaveBar from './RecordSaveBar';
 import RecordFormModal from './RecordFormModal';
 import { listAttachments, uploadAttachment, deleteAttachment, generateAndAttachReport, downloadReport, getFreshAttachmentUrl } from '../api/inspectionAttachments';
 import './Inspections.css';
@@ -125,7 +126,6 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
   const { records, total } = useAllRecords(LAYOUT, { cacheVersion: CACHE_VERSION });
   const [selected, setSelected] = useState(null);
   const [navWidth, setNavWidth] = useState(300);
-  const [dataEditing, setDataEditing] = useState(false);
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -169,7 +169,7 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
   });
 
   async function handleSelect(r) {
-    setEdits({}); setDataEditing(false); setSaveStatus(null);
+    setEdits({}); setSaveStatus(null);
     setSelected(r);
     getRecord(LAYOUT, r.recordId).then(detail => {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
@@ -274,11 +274,11 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
   }
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
-  const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
+  const handleDiscard = () => { setEdits({}); setSaveStatus(null); };
 
   async function handleSave() {
     const dirtyCount = Object.keys(edits).length;
-    if (!dirtyCount) { setDataEditing(false); return; }
+    if (!dirtyCount) { return; }
     setSaving(true); setSaveStatus(null);
     try {
       await updateRecord(LAYOUT, selected.recordId, edits);
@@ -289,7 +289,7 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
       patchCachedRecord(LAYOUT, CACHE_VERSION, selected.recordId, edits);
       invalidateRecord(LAYOUT, selected.recordId);
       setSelected(prev => ({ ...prev, fieldData: { ...prev.fieldData, ...edits } }));
-      setEdits({}); setDataEditing(false); setSaveStatus('saved');
+      setEdits({}); setSaveStatus('saved');
       setTimeout(() => setSaveStatus(null), 2000);
     } catch { setSaveStatus('error'); }
     finally { setSaving(false); }
@@ -389,44 +389,30 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
                   </div>
                 </div>
               </div>
-              <div className="insp-topbar-actions">
-                {saveStatus === 'saved' && <span className="insp-status saved">✓ Saved</span>}
-                {saveStatus === 'error' && <span className="insp-status error">✗ Failed</span>}
-                {!dataEditing ? (
-                  <button className="insp-btn-edit" onClick={() => setDataEditing(true)}>✎ Edit</button>
-                ) : (
-                  <>
-                    <button className="insp-btn-discard" onClick={handleDiscard} disabled={saving}>Discard</button>
-                    <button className="insp-btn-save" onClick={handleSave} disabled={saving || dirtyCount === 0}>
-                      {saving ? 'Saving…' : dirtyCount ? `Save ${dirtyCount} change${dirtyCount > 1 ? 's' : ''}` : 'Save'}
-                    </button>
-                  </>
-                )}
-              </div>
             </div>
 
             <div className="insp-content">
               <Section title="Inspection Details" icon="◈">
                 <div className="insp-field-grid">
-                  <TextField label="Site" fieldKey="inspt_CNTCT__site::Name_Organization" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} />
-                  <TextField label="Site Number" fieldKey="inspt_CNTCT__site::Site Number" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} mono />
-                  <TextField label="Date" fieldKey="Date" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Inspector Name" fieldKey="Inspectors Name" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Inspection #" fieldKey="_kpt__Inspection_ID" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} mono />
-                  <TextField label="Individual" fieldKey="inspt_CNTCT::NameFirstLast" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} />
-                  <TextField label="Email" fieldKey="inspt_CNTCT::zz__Email__ct" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} />
-                  <ToggleField label="Report Ready" fieldKey="Report Ready" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} onValue="Yes" />
-                  <ToggleField label="Needs Repair" fieldKey="needs_repair" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} onValue="1" />
-                  <TextField label="Address" fieldKey="Address_Block_Billing" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} wide />
+                  <TextField label="Site" fieldKey="inspt_CNTCT__site::Name_Organization" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} />
+                  <TextField label="Site Number" fieldKey="inspt_CNTCT__site::Site Number" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} mono />
+                  <TextField label="Date" fieldKey="Date" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Inspector Name" fieldKey="Inspectors Name" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Inspection #" fieldKey="_kpt__Inspection_ID" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} mono />
+                  <TextField label="Individual" fieldKey="inspt_CNTCT::NameFirstLast" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} />
+                  <TextField label="Email" fieldKey="inspt_CNTCT::zz__Email__ct" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} />
+                  <ToggleField label="Report Ready" fieldKey="Report Ready" f={f} edits={edits} onChange={handleFieldChange} editing={true} onValue="Yes" />
+                  <ToggleField label="Needs Repair" fieldKey="needs_repair" f={f} edits={edits} onChange={handleFieldChange} editing={true} onValue="1" />
+                  <TextField label="Address" fieldKey="Address_Block_Billing" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} wide />
                 </div>
               </Section>
 
               <Section title="Facilitator Access" icon="⚐">
-                <CheckGrid items={FACILITATOR_ACCESS} f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} />
+                <CheckGrid items={FACILITATOR_ACCESS} f={f} edits={edits} onChange={handleFieldChange} editing={true} />
               </Section>
 
               <Section title="Course Type" icon="◑">
-                <CheckGrid items={COURSE_TYPE} f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} />
+                <CheckGrid items={COURSE_TYPE} f={f} edits={edits} onChange={handleFieldChange} editing={true} />
               </Section>
 
               <Section title={`Line Items${lineItems.length ? ` (${lineItems.length})` : ''}`} icon="≡">
@@ -544,6 +530,7 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
               <div className="insp-record-footer">
                 ID {f._kpt__Inspection_ID} · Record {selected.recordId} · Created {f.zz__Created_On?.split(' ')[0]} by {f.zz__Created_By} · Modified {f.zz__Modified_On?.split(' ')[0] || '—'} by {f.zz__Modified_By}
               </div>
+              <RecordSaveBar count={dirtyCount} saving={saving} status={saveStatus} onSave={handleSave} onDiscard={handleDiscard} />
             </div>
           </>
         )}

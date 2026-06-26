@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { getRecord, updateRecord, invalidateRecord, patchCachedRecord } from '../api/filemaker'
 import { useAllRecords } from '../hooks/useAllRecords'
 import ListToolbar, { useListControls, ListBody } from './ListControls'
+import RecordSaveBar from './RecordSaveBar'
 import './Estimates.css'
 
 const LAYOUT = 'Estimates_New'
@@ -69,7 +70,6 @@ export default function Estimates({ navTarget, onClearNav, onRecordSelect } = {}
   const { records, total, loading, error } = useAllRecords(LAYOUT, { cacheVersion: CACHE_VERSION })
   const [selected, setSelected] = useState(null)
   const [sidebarWidth, setSidebarWidth] = useState(300)
-  const [editing, setEditing] = useState(false)
   const [edits, setEdits] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
@@ -96,7 +96,7 @@ export default function Estimates({ navTarget, onClearNav, onRecordSelect } = {}
   })
 
   async function handleSelect(r) {
-    setEdits({}); setEditing(false); setSaveStatus(null)
+    setEdits({}); setSaveStatus(null)
     setSelected(r)
     getRecord(LAYOUT, r.recordId).then(d => {
       const fresh = d?.response?.data?.[0]
@@ -126,18 +126,18 @@ export default function Estimates({ navTarget, onClearNav, onRecordSelect } = {}
   }, [sidebarWidth])
 
   const handleChange = useCallback((fk, val) => setEdits(p => ({ ...p, [fk]: val })), [])
-  const handleDiscard = () => { setEdits({}); setEditing(false); setSaveStatus(null) }
+  const handleDiscard = () => { setEdits({}); setSaveStatus(null) }
 
   async function handleSave() {
     const n = Object.keys(edits).length
-    if (!n) { setEditing(false); return }
+    if (!n) { return }
     setSaving(true); setSaveStatus(null)
     try {
       await updateRecord(LAYOUT, selected.recordId, edits)
       patchCachedRecord(LAYOUT, CACHE_VERSION, selected.recordId, edits)
       invalidateRecord(LAYOUT, selected.recordId)
       setSelected(prev => ({ ...prev, fieldData: { ...prev.fieldData, ...edits } }))
-      setEdits({}); setEditing(false); setSaveStatus('saved')
+      setEdits({}); setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
     } catch { setSaveStatus('error') }
     finally { setSaving(false) }
@@ -234,20 +234,6 @@ export default function Estimates({ navTarget, onClearNav, onRecordSelect } = {}
                     <span className="est-total-amount">{fmtCurrency(displayTotal)}</span>
                   </div>
                 )}
-                <div className="est-topbar-actions">
-                  {saveStatus === 'saved' && <span className="est-save-status saved">✓ Saved</span>}
-                  {saveStatus === 'error' && <span className="est-save-status error">✗ Failed</span>}
-                  {!editing ? (
-                    <button className="est-btn edit" onClick={() => setEditing(true)}>✎ Edit</button>
-                  ) : (
-                    <>
-                      <button className="est-btn discard" onClick={handleDiscard} disabled={saving}>Discard</button>
-                      <button className="est-btn save" onClick={handleSave} disabled={saving || dirtyCount === 0}>
-                        {saving ? 'Saving…' : dirtyCount ? `Save ${dirtyCount}` : 'Save'}
-                      </button>
-                    </>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -255,27 +241,27 @@ export default function Estimates({ navTarget, onClearNav, onRecordSelect } = {}
 
               <Section title="Client" icon="◉">
                 <div className="est-field-grid">
-                  <Field label="Contact / Organization" fk="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} wide />
+                  <Field label="Contact / Organization" fk="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} wide />
                   {f.Address_Block_Billing && (
-                    <Field label="Billing Address" fk="Address_Block_Billing" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} wide />
+                    <Field label="Billing Address" fk="Address_Block_Billing" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} wide />
                   )}
                   {f.Address_Block_Shipping && (
-                    <Field label="Shipping Address" fk="Address_Block_Shipping" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} wide />
+                    <Field label="Shipping Address" fk="Address_Block_Shipping" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} wide />
                   )}
                 </div>
               </Section>
 
               <Section title="Estimate Details" icon="◧">
                 <div className="est-field-grid">
-                  <Field label="Estimate #" fk="_kpt__Estimate_ID" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} mono />
-                  <Field label="Title"       fk="Title"             f={f} edits={edits} onChange={handleChange} editing={editing} />
-                  <Field label="Status"      fk="Status"            f={f} edits={edits} onChange={handleChange} editing={editing} />
-                  <Field label="Class"       fk="Class"             f={f} edits={edits} onChange={handleChange} editing={editing} />
-                  <Field label="Date"        fk="Date"              f={f} edits={edits} onChange={handleChange} editing={editing} />
-                  <Field label="Tax Name"    fk="Tax_Name"          f={f} edits={edits} onChange={handleChange} editing={editing} />
-                  <Field label="Tax Rate"    fk="Tax_Rate"          f={f} edits={edits} onChange={handleChange} editing={editing} />
+                  <Field label="Estimate #" fk="_kpt__Estimate_ID" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} mono />
+                  <Field label="Title"       fk="Title"             f={f} edits={edits} onChange={handleChange} editing={true} />
+                  <Field label="Status"      fk="Status"            f={f} edits={edits} onChange={handleChange} editing={true} />
+                  <Field label="Class"       fk="Class"             f={f} edits={edits} onChange={handleChange} editing={true} />
+                  <Field label="Date"        fk="Date"              f={f} edits={edits} onChange={handleChange} editing={true} />
+                  <Field label="Tax Name"    fk="Tax_Name"          f={f} edits={edits} onChange={handleChange} editing={true} />
+                  <Field label="Tax Rate"    fk="Tax_Rate"          f={f} edits={edits} onChange={handleChange} editing={true} />
                   {f.Memo && (
-                    <Field label="Memo"      fk="Memo"              f={f} edits={edits} onChange={handleChange} editing={editing} wide textarea />
+                    <Field label="Memo"      fk="Memo"              f={f} edits={edits} onChange={handleChange} editing={true} wide textarea />
                   )}
                 </div>
               </Section>
@@ -333,7 +319,7 @@ export default function Estimates({ navTarget, onClearNav, onRecordSelect } = {}
               {f.Memo && (
                 <Section title="Memo" icon="✎">
                   <div className="est-field-grid">
-                    <Field label="Memo" fk="Memo" f={f} edits={edits} onChange={handleChange} editing={editing} wide textarea />
+                    <Field label="Memo" fk="Memo" f={f} edits={edits} onChange={handleChange} editing={true} wide textarea />
                   </div>
                 </Section>
               )}
@@ -341,6 +327,7 @@ export default function Estimates({ navTarget, onClearNav, onRecordSelect } = {}
               <div className="est-record-footer">
                 ID {f._kpt__Estimate_ID || '—'} · Record {selected.recordId} · Created {f.zz__Created_On?.split(' ')[0] || '—'} by {f.zz__Created_By || '—'} · Modified {f.zz__Modified_On?.split(' ')[0] || '—'} by {f.zz__Modified_By || '—'}
               </div>
+              <RecordSaveBar count={dirtyCount} saving={saving} status={saveStatus} onSave={handleSave} onDiscard={handleDiscard} />
             </div>
           </>
         )}
