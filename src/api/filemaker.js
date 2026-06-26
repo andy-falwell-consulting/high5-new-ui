@@ -307,8 +307,10 @@ export function addCachedRecord(layout, cacheVersion, record) {
 
 // Patch a record into every cached version of a layout and notify subscribers.
 // Lets a fresh single-record fetch (hover/click) update the displayed list row
-// without the caller needing to know its cacheVersion.
-function patchCachedRecordAcrossVersions(layout, recordId, fieldData) {
+// without the caller needing to know its cacheVersion. When portalData is given
+// (a full record fetch), it REPLACES the cached portalData so related-row edits
+// (e.g. BOM add/remove) don't linger in the list cache across reloads.
+function patchCachedRecordAcrossVersions(layout, recordId, fieldData, portalData) {
   const rid = String(recordId);
   const prefix = `${layout}__v`;
   for (const mk of Object.keys(memCache)) {
@@ -319,7 +321,9 @@ function patchCachedRecordAcrossVersions(layout, recordId, fieldData) {
     entry.records = entry.records.map(r => {
       if (String(r.recordId) !== rid) return r;
       changed = true;
-      return { ...r, fieldData: { ...r.fieldData, ...fieldData } };
+      const next = { ...r, fieldData: { ...r.fieldData, ...fieldData } };
+      if (portalData) next.portalData = portalData;
+      return next;
     });
     if (!changed) continue;
     idbSet(`fmp_cache__${mk}`, { ...entry }).catch(() => {});
@@ -427,7 +431,7 @@ export async function getRecord(layout, recordId) {
   // displayed list reflects current data even though we don't bulk-refresh.
   const promise = res.json().then(data => {
     const rec = data?.response?.data?.[0];
-    if (rec) patchCachedRecordAcrossVersions(layout, recordId, rec.fieldData);
+    if (rec) patchCachedRecordAcrossVersions(layout, recordId, rec.fieldData, rec.portalData);
     return data;
   });
   detailCache.set(key, promise);
