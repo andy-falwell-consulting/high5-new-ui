@@ -97,6 +97,22 @@ export default async function handler(req, res) {
   const store = process.env.SHOPIFY_STORE;
   const { token, source: tokenSource } = await resolveToken();
 
+  // Read-only product inspector: /api/shopify?product=<gid|numeric id>. Returns
+  // the product's variants — handy for diagnosing syncs without mutating.
+  if (req.method === 'GET' && req.query?.product) {
+    if (!store || !token) return res.status(500).json({ error: 'Shopify not configured' });
+    const raw = String(req.query.product);
+    const id = raw.startsWith('gid://') ? raw : `gid://shopify/Product/${raw}`;
+    try {
+      const data = await gql(store, token, `
+        query($id: ID!) { product(id: $id) { id title status variants(first: 100) { nodes { id sku title price } } } }`, { id });
+      const p = data.product;
+      return res.status(200).json(p
+        ? { id: p.id, title: p.title, status: p.status, variantCount: p.variants.nodes.length, variants: p.variants.nodes }
+        : { error: 'product not found' });
+    } catch (e) { return res.status(502).json({ error: String(e?.message || e) }); }
+  }
+
   // Read-only health check — safe to open in a browser at /api/shopify. Verifies
   // the GraphQL endpoint, token, and scope by querying the shop.
   if (req.method === 'GET') {
