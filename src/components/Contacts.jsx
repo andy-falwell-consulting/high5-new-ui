@@ -3,6 +3,7 @@ import { getRecord, prefetchRecord, updateRecord, createRecord, addCachedRecord,
 import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
 import RecordFormModal from './RecordFormModal';
+import RecordSaveBar from './RecordSaveBar';
 import ComposeEmail from './ComposeEmail';
 import ReminderModal from './ReminderModal';
 import './Contacts.css';
@@ -195,7 +196,6 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
   const [selected, setSelected] = useState(null);
   const [navWidth, setNavWidth] = useState(280);
   const [tooltip, setTooltip] = useState(null);
-  const [dataEditing, setDataEditing] = useState(false);
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -250,7 +250,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
   });
 
   async function handleSelect(r) {
-    setEdits({}); setDataEditing(false); setSaveStatus(null); setTab('overview');
+    setEdits({}); setSaveStatus(null); setTab('overview');
     setSelected(r);
     getRecord(LAYOUT, r.recordId).then(detail => {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
@@ -265,17 +265,17 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
   }, [navTarget, records]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
-  const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
+  const handleDiscard = () => { setEdits({}); setSaveStatus(null); };
 
   async function handleSave() {
     const dirtyCount = Object.keys(edits).length;
-    if (!dirtyCount) { setDataEditing(false); return; }
+    if (!dirtyCount) return;
     setSaving(true); setSaveStatus(null);
     try {
       await updateRecord(LAYOUT, selected.recordId, edits);
       const detail = await getRecord(LAYOUT, selected.recordId);
       setSelected(detail.response.data[0]);
-      setEdits({}); setDataEditing(false); setSaveStatus('saved');
+      setEdits({}); setSaveStatus('saved');
       setTimeout(() => setSaveStatus(null), 2000);
     } catch { setSaveStatus('error'); }
     finally { setSaving(false); }
@@ -391,6 +391,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
         )}
 
         {selected && f && (
+          <>
           <div className="ct-profile">
             {/* ── Hero ── */}
             <div className="ct-hero">
@@ -411,20 +412,8 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
                 </div>
               </div>
               <div className="ct-hero-actions">
-                {saveStatus === 'saved' && <span className="ct-status saved">✓ Saved</span>}
-                {saveStatus === 'error' && <span className="ct-status error">✗ Failed</span>}
-                {!dataEditing && <button className="ct-btn-email" onClick={() => setComposeOpen(true)}>✉ Email</button>}
-                {!dataEditing && <button className="ct-btn-email" onClick={() => setRemindOpen(true)}>⏰ Remind</button>}
-                {!dataEditing ? (
-                  <button className="ct-btn-edit" onClick={() => setDataEditing(true)}>✎ Edit</button>
-                ) : (
-                  <>
-                    <button className="ct-btn-discard" onClick={handleDiscard} disabled={saving}>Discard</button>
-                    <button className="ct-btn-save" onClick={handleSave} disabled={saving || dirtyCount === 0}>
-                      {saving ? 'Saving…' : dirtyCount ? `Save ${dirtyCount} change${dirtyCount > 1 ? 's' : ''}` : 'Save'}
-                    </button>
-                  </>
-                )}
+                <button className="ct-btn-email" onClick={() => setComposeOpen(true)}>✉ Email</button>
+                <button className="ct-btn-email" onClick={() => setRemindOpen(true)}>⏰ Remind</button>
               </div>
             </div>
 
@@ -445,7 +434,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
                   {ABOUT_FIELDS.map(fk => (
                     <div className="ct-kv" key={fk}>
                       <span className="ct-kv-k">{FIELD_LABELS[fk] || fk}</span>
-                      <span className="ct-kv-v"><FieldValue fieldKey={fk} value={val(fk)} onChange={handleFieldChange} editing={dataEditing} /></span>
+                      <span className="ct-kv-v"><FieldValue fieldKey={fk} value={val(fk)} onChange={handleFieldChange} editing={true} /></span>
                     </div>
                   ))}
                   {f._kaf__qbo_id && (
@@ -510,7 +499,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
                       {NOTE_FIELDS.map(fk => (
                         <div className="ct-note-block" key={fk}>
                           <div className="ct-card-title">{FIELD_LABELS[fk]}</div>
-                          <FieldValue fieldKey={fk} value={val(fk)} onChange={handleFieldChange} editing={dataEditing} />
+                          <FieldValue fieldKey={fk} value={val(fk)} onChange={handleFieldChange} editing={true} />
                         </div>
                       ))}
                     </div>
@@ -539,6 +528,8 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
               ID {f._kpt__Contact_ID} · Record {selected.recordId} · Created {f.zz__Created_On?.split(' ')[0]} by {f.zz__Created_By} · Modified {f.zz__Modified_On?.split(' ')[0] || '—'} by {f.zz__Modified_By}
             </div>
           </div>
+          <RecordSaveBar count={dirtyCount} saving={saving} status={saveStatus} onSave={handleSave} onDiscard={handleDiscard} />
+          </>
         )}
       </main>
 

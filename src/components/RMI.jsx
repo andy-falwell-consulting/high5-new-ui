@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { getRecord, updateRecord, invalidateRecord, patchCachedRecord, createRecord, addCachedRecord } from '../api/filemaker'
 import { useAllRecords } from '../hooks/useAllRecords'
 import ListToolbar, { useListControls, ListBody } from './ListControls'
+import RecordSaveBar from './RecordSaveBar'
 import RecordFormModal from './RecordFormModal'
 import './RMI.css'
 
@@ -118,7 +119,6 @@ export default function RMI({ navTarget, onClearNav, onRecordSelect } = {}) {
   const { records, total, loading, error } = useAllRecords(LAYOUT, { cacheVersion: CACHE_VERSION })
   const [selected, setSelected] = useState(null)
   const [navWidth, setNavWidth] = useState(300)
-  const [editing, setEditing] = useState(false)
   const [edits, setEdits] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null)
@@ -147,7 +147,7 @@ export default function RMI({ navTarget, onClearNav, onRecordSelect } = {}) {
   })
 
   async function handleSelect(r) {
-    setEdits({}); setEditing(false); setSaveStatus(null)
+    setEdits({}); setSaveStatus(null)
     setSelected(r)
     getRecord(LAYOUT, r.recordId).then(detail => {
       const fresh = detail?.response?.data?.[0]
@@ -168,18 +168,18 @@ export default function RMI({ navTarget, onClearNav, onRecordSelect } = {}) {
   }, [navTarget, records]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), [])
-  const handleDiscard = () => { setEdits({}); setEditing(false); setSaveStatus(null) }
+  const handleDiscard = () => { setEdits({}); setSaveStatus(null) }
 
   async function handleSave() {
     const n = Object.keys(edits).length
-    if (!n) { setEditing(false); return }
+    if (!n) { return }
     setSaving(true); setSaveStatus(null)
     try {
       await updateRecord(LAYOUT, selected.recordId, edits)
       patchCachedRecord(LAYOUT, CACHE_VERSION, selected.recordId, edits)
       invalidateRecord(LAYOUT, selected.recordId)
       setSelected(prev => ({ ...prev, fieldData: { ...prev.fieldData, ...edits } }))
-      setEdits({}); setEditing(false); setSaveStatus('saved')
+      setEdits({}); setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
     } catch { setSaveStatus('error') }
     finally { setSaving(false) }
@@ -313,76 +313,63 @@ export default function RMI({ navTarget, onClearNav, onRecordSelect } = {}) {
                   {f._kpt__RMI_ID && <span className="rmi-chip id">#{f._kpt__RMI_ID}</span>}
                 </div>
               </div>
-              <div className="rmi-topbar-actions">
-                {saveStatus === 'saved' && <span className="rmi-status saved">✓ Saved</span>}
-                {saveStatus === 'error' && <span className="rmi-status error">✗ Failed</span>}
-                {!editing ? (
-                  <button className="rmi-btn-edit" onClick={() => setEditing(true)}>✎ Edit</button>
-                ) : (
-                  <>
-                    <button className="rmi-btn-discard" onClick={handleDiscard} disabled={saving}>Discard</button>
-                    <button className="rmi-btn-save" onClick={handleSave} disabled={saving || dirtyCount === 0}>
-                      {saving ? 'Saving…' : dirtyCount ? `Save ${dirtyCount} change${dirtyCount > 1 ? 's' : ''}` : 'Save'}
-                    </button>
-                  </>
-                )}
-              </div>
             </div>
 
             <div className="rmi-content">
               <Section title="Overview" icon="◈">
                 <div className="rmi-field-grid">
-                  <TextField label="Organization" fieldKey="zz__Display_Organization__ct" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} />
-                  <TextField label="Contact" fieldKey="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} />
-                  <TextField label="Site" fieldKey="rmi_CNTCT__site::zz__Display__ct" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} />
-                  <TextField label="Site Number" fieldKey="rmi_CNTCT__site::Site Number" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} mono />
-                  <TextField label="Email" fieldKey="rmi_cntct_INADR__emailIndividual::zz__Address__ct" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} />
-                  <TextField label="Work Phone" fieldKey="rmi_cntct_PHONE__workIndividual::Number" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} />
-                  <TextField label="Mobile Phone" fieldKey="rmi_cntct_PHONE__mobileIndividual::Number" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} />
-                  <TextField label="RMI #" fieldKey="_kpt__RMI_ID" f={f} edits={edits} onChange={handleChange} editing={editing} editable={false} mono />
+                  <TextField label="Organization" fieldKey="zz__Display_Organization__ct" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} />
+                  <TextField label="Contact" fieldKey="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} />
+                  <TextField label="Site" fieldKey="rmi_CNTCT__site::zz__Display__ct" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} />
+                  <TextField label="Site Number" fieldKey="rmi_CNTCT__site::Site Number" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} mono />
+                  <TextField label="Email" fieldKey="rmi_cntct_INADR__emailIndividual::zz__Address__ct" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} />
+                  <TextField label="Work Phone" fieldKey="rmi_cntct_PHONE__workIndividual::Number" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} />
+                  <TextField label="Mobile Phone" fieldKey="rmi_cntct_PHONE__mobileIndividual::Number" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} />
+                  <TextField label="RMI #" fieldKey="_kpt__RMI_ID" f={f} edits={edits} onChange={handleChange} editing={true} editable={false} mono />
                 </div>
               </Section>
 
               <Section title="Risk Assessment" icon="⚠">
                 <div className="rmi-field-grid">
-                  <TextField label="Status" fieldKey="Status" f={f} edits={edits} onChange={handleChange} editing={editing} editable />
-                  <LevelField label="Level of Risk" fieldKey="Level_of_Risk" f={f} edits={edits} onChange={handleChange} editing={editing} />
-                  <LevelField label="Level of Concern" fieldKey="Level_of_Concern" f={f} edits={edits} onChange={handleChange} editing={editing} />
-                  <TextField label="Assigned To" fieldKey="Assigned_To" f={f} edits={edits} onChange={handleChange} editing={editing} editable />
-                  <TextField label="Staff" fieldKey="Staff" f={f} edits={edits} onChange={handleChange} editing={editing} editable />
-                  <TextField label="Entry Date" fieldKey="Entry_Date" f={f} edits={edits} onChange={handleChange} editing={editing} editable />
-                  <TextField label="Date Assigned" fieldKey="Date_Assigned" f={f} edits={edits} onChange={handleChange} editing={editing} editable />
+                  <TextField label="Status" fieldKey="Status" f={f} edits={edits} onChange={handleChange} editing={true} editable />
+                  <LevelField label="Level of Risk" fieldKey="Level_of_Risk" f={f} edits={edits} onChange={handleChange} editing={true} />
+                  <LevelField label="Level of Concern" fieldKey="Level_of_Concern" f={f} edits={edits} onChange={handleChange} editing={true} />
+                  <TextField label="Assigned To" fieldKey="Assigned_To" f={f} edits={edits} onChange={handleChange} editing={true} editable />
+                  <TextField label="Staff" fieldKey="Staff" f={f} edits={edits} onChange={handleChange} editing={true} editable />
+                  <TextField label="Entry Date" fieldKey="Entry_Date" f={f} edits={edits} onChange={handleChange} editing={true} editable />
+                  <TextField label="Date Assigned" fieldKey="Date_Assigned" f={f} edits={edits} onChange={handleChange} editing={true} editable />
                 </div>
               </Section>
 
               <Section title="Concern" icon="❗">
                 <div className="rmi-field-grid">
-                  <TextField label="Note of Concern" fieldKey="Note_Concern" f={f} edits={edits} onChange={handleChange} editing={editing} editable wide textarea />
+                  <TextField label="Note of Concern" fieldKey="Note_Concern" f={f} edits={edits} onChange={handleChange} editing={true} editable wide textarea />
                 </div>
               </Section>
 
               <Section title="Risk Questions" icon="☑">
                 <div className="rmi-q-grid">
                   {RISK_QUESTIONS.map(q => (
-                    <QuestionRow key={q.key} label={q.label} fieldKey={q.key} f={f} edits={edits} onChange={handleChange} editing={editing} />
+                    <QuestionRow key={q.key} label={q.label} fieldKey={q.key} f={f} edits={edits} onChange={handleChange} editing={true} />
                   ))}
                 </div>
-                {(val(f, edits, 'Question_Text_8') || editing) && (
+                {(val(f, edits, 'Question_Text_8') || true) && (
                   <div className="rmi-field-grid bordered">
-                    <TextField label="Additional Notes" fieldKey="Question_Text_8" f={f} edits={edits} onChange={handleChange} editing={editing} editable wide textarea />
+                    <TextField label="Additional Notes" fieldKey="Question_Text_8" f={f} edits={edits} onChange={handleChange} editing={true} editable wide textarea />
                   </div>
                 )}
               </Section>
 
               <Section title="Follow-Up Log" icon="✎">
                 <div className="rmi-field-grid">
-                  <TextField label="Follow-Up Notes" fieldKey="Note_Follow_Up" f={f} edits={edits} onChange={handleChange} editing={editing} editable wide textarea />
+                  <TextField label="Follow-Up Notes" fieldKey="Note_Follow_Up" f={f} edits={edits} onChange={handleChange} editing={true} editable wide textarea />
                 </div>
               </Section>
 
               <div className="rmi-record-footer">
                 ID {f._kpt__RMI_ID || '—'} · Record {selected.recordId} · Created {f.zz__Created_On?.split(' ')[0] || '—'} by {f.zz__Created_By || '—'} · Modified {f.zz__Modified_On?.split(' ')[0] || '—'} by {f.zz__Modified_By || '—'}
               </div>
+              <RecordSaveBar count={dirtyCount} saving={saving} status={saveStatus} onSave={handleSave} onDiscard={handleDiscard} />
             </div>
           </>
         )}

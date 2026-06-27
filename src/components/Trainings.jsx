@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { getRecord, prefetchRecord, updateRecord, invalidateRecord, patchCachedRecord } from '../api/filemaker';
 import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
+import RecordSaveBar from './RecordSaveBar';
 import AttachmentsPanel from './AttachmentsPanel';
 import { trainingAttachments } from '../api/trainingAttachments';
 import './Trainings.css';
@@ -100,7 +101,6 @@ export default function Trainings({ navTarget, onClearNav, onRecordSelect } = {}
   const { records, total } = useAllRecords(LAYOUT, { cacheVersion: CACHE_VERSION });
   const [selected, setSelected] = useState(null);
   const [navWidth, setNavWidth] = useState(300);
-  const [dataEditing, setDataEditing] = useState(false);
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -129,7 +129,7 @@ export default function Trainings({ navTarget, onClearNav, onRecordSelect } = {}
   });
 
   async function handleSelect(r) {
-    setEdits({}); setDataEditing(false); setSaveStatus(null);
+    setEdits({}); setSaveStatus(null);
     setSelected(r);
     getRecord(LAYOUT, r.recordId).then(detail => {
       setSelected(prev => prev?.recordId === r.recordId ? detail.response.data[0] : prev);
@@ -152,18 +152,18 @@ export default function Trainings({ navTarget, onClearNav, onRecordSelect } = {}
   }, [navTarget, records]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFieldChange = useCallback((fk, v) => setEdits(p => ({ ...p, [fk]: v })), []);
-  const handleDiscard = () => { setEdits({}); setDataEditing(false); setSaveStatus(null); };
+  const handleDiscard = () => { setEdits({}); setSaveStatus(null); };
 
   async function handleSave() {
     const dirtyCount = Object.keys(edits).length;
-    if (!dirtyCount) { setDataEditing(false); return; }
+    if (!dirtyCount) { return; }
     setSaving(true); setSaveStatus(null);
     try {
       await updateRecord(LAYOUT, selected.recordId, edits);
       patchCachedRecord(LAYOUT, CACHE_VERSION, selected.recordId, edits);
       invalidateRecord(LAYOUT, selected.recordId);
       setSelected(prev => ({ ...prev, fieldData: { ...prev.fieldData, ...edits } }));
-      setEdits({}); setDataEditing(false); setSaveStatus('saved');
+      setEdits({}); setSaveStatus('saved');
       setTimeout(() => setSaveStatus(null), 2000);
     } catch { setSaveStatus('error'); }
     finally { setSaving(false); }
@@ -265,51 +265,37 @@ export default function Trainings({ navTarget, onClearNav, onRecordSelect } = {}
                   </div>
                 </div>
               </div>
-              <div className="trn-topbar-actions">
-                {saveStatus === 'saved' && <span className="trn-status saved">✓ Saved</span>}
-                {saveStatus === 'error' && <span className="trn-status error">✗ Failed</span>}
-                {!dataEditing ? (
-                  <button className="trn-btn-edit" onClick={() => setDataEditing(true)}>✎ Edit</button>
-                ) : (
-                  <>
-                    <button className="trn-btn-discard" onClick={handleDiscard} disabled={saving}>Discard</button>
-                    <button className="trn-btn-save" onClick={handleSave} disabled={saving || dirtyCount === 0}>
-                      {saving ? 'Saving…' : dirtyCount ? `Save ${dirtyCount} change${dirtyCount > 1 ? 's' : ''}` : 'Save'}
-                    </button>
-                  </>
-                )}
-              </div>
             </div>
 
             <div className="trn-content">
               <Section title="Program" icon="◈">
                 <div className="trn-field-grid">
-                  <TextField label="Organization" fieldKey="zz__Display_Organization__ct" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} />
-                  <TextField label="Contact" fieldKey="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} />
-                  <TextField label="Type of program" fieldKey="Type of Program" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Status" fieldKey="Status" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Start date" fieldKey="Start Date" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="End date" fieldKey="End Date" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="# Days" fieldKey="# Days" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="# Hours" fieldKey="# Hours" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Audience" fieldKey="Audience" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Group size" fieldKey="Group Size" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Lead trainer" fieldKey="Lead Trainer" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Workshop location" fieldKey="Workshop Location" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Inspection required" fieldKey="Inspection Required" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
+                  <TextField label="Organization" fieldKey="zz__Display_Organization__ct" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} />
+                  <TextField label="Contact" fieldKey="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} />
+                  <TextField label="Type of program" fieldKey="Type of Program" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Status" fieldKey="Status" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Start date" fieldKey="Start Date" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="End date" fieldKey="End Date" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="# Days" fieldKey="# Days" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="# Hours" fieldKey="# Hours" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Audience" fieldKey="Audience" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Group size" fieldKey="Group Size" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Lead trainer" fieldKey="Lead Trainer" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Workshop location" fieldKey="Workshop Location" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Inspection required" fieldKey="Inspection Required" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
                   {otherTrainers && <div className="trn-field wide"><label>Additional trainers</label><span className="trn-value">{otherTrainers}</span></div>}
-                  <TextField label="Location address" fieldKey="Location Address" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable wide />
-                  <TextField label="Description of training" fieldKey="Description of Training" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable wide />
+                  <TextField label="Location address" fieldKey="Location Address" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable wide />
+                  <TextField label="Description of training" fieldKey="Description of Training" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable wide />
                 </div>
               </Section>
 
               <Section title="Contact" icon="◉">
                 <div className="trn-field-grid">
-                  <TextField label="Contact" fieldKey="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} />
-                  <TextField label="Phone" fieldKey="trnpp_cntct_PHONE::Number" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} mono />
-                  <TextField label="Mobile" fieldKey="trnpp_cntct_PHONE_mobile::Number" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} mono />
-                  <TextField label="Email" fieldKey="trnpp_cntct_INADR__email::zz__Address__ct" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} />
-                  <TextField label="Billing address" fieldKey="Address_Block_Billing" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} wide />
+                  <TextField label="Contact" fieldKey="zz__Display_Contact__ct" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} />
+                  <TextField label="Phone" fieldKey="trnpp_cntct_PHONE::Number" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} mono />
+                  <TextField label="Mobile" fieldKey="trnpp_cntct_PHONE_mobile::Number" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} mono />
+                  <TextField label="Email" fieldKey="trnpp_cntct_INADR__email::zz__Address__ct" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} />
+                  <TextField label="Billing address" fieldKey="Address_Block_Billing" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} wide />
                 </div>
               </Section>
 
@@ -341,22 +327,22 @@ export default function Trainings({ navTarget, onClearNav, onRecordSelect } = {}
               <Section title="Logistics" icon="⚐">
                 <div className="trn-field-grid">
                   {LOGISTICS_FIELDS.map(l => (
-                    <TextField key={l.key} label={l.label} fieldKey={l.key} f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
+                    <TextField key={l.key} label={l.label} fieldKey={l.key} f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
                   ))}
-                  <TextField label="Logistics notes" fieldKey="Logistics Notes" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable wide />
+                  <TextField label="Logistics notes" fieldKey="Logistics Notes" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable wide />
                 </div>
               </Section>
 
               <Section title="Sales / pipeline" icon="◔">
                 <div className="trn-field-grid">
-                  <TextField label="Proposed" fieldKey="Proposed" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Confirmed" fieldKey="Confirmed" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Final sent" fieldKey="Final Sent" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Sent in-house" fieldKey="sent in-house" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Email sent" fieldKey="email_sent_date" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="Deposit #" fieldKey="deposit_number" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable />
-                  <TextField label="QB estimate ID" fieldKey="_kat__QuickBooks_Estimate_ID" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} mono />
-                  <TextField label="QB invoice ID" fieldKey="_kat__QuickBooks_Invoice_ID" f={f} edits={edits} onChange={handleFieldChange} editing={dataEditing} editable={false} mono />
+                  <TextField label="Proposed" fieldKey="Proposed" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Confirmed" fieldKey="Confirmed" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Final sent" fieldKey="Final Sent" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Sent in-house" fieldKey="sent in-house" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Email sent" fieldKey="email_sent_date" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="Deposit #" fieldKey="deposit_number" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable />
+                  <TextField label="QB estimate ID" fieldKey="_kat__QuickBooks_Estimate_ID" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} mono />
+                  <TextField label="QB invoice ID" fieldKey="_kat__QuickBooks_Invoice_ID" f={f} edits={edits} onChange={handleFieldChange} editing={true} editable={false} mono />
                 </div>
               </Section>
 
@@ -367,6 +353,7 @@ export default function Trainings({ navTarget, onClearNav, onRecordSelect } = {}
               <div className="trn-record-footer">
                 ID {f._kpt__TrainingProposal_ID} · Record {selected.recordId} · Created {f.zz__Created_On?.split(' ')[0]} by {f.zz__Created_By} · Modified {f.zz__Modified_On?.split(' ')[0] || '—'} by {f.zz__Modified_By}
               </div>
+              <RecordSaveBar count={dirtyCount} saving={saving} status={saveStatus} onSave={handleSave} onDiscard={handleDiscard} />
             </div>
           </>
         )}
