@@ -163,7 +163,13 @@ export async function getRecords(layout, limit = 100, offset = 1, signal) {
 }
 
 const MEM_TTL_MS = 5 * 60 * 1000;
-const IDB_TTL_MS = 24 * 60 * 60 * 1000;
+// IndexedDB cache lifetime. FileMaker's Data API is extremely slow for big
+// layouts (a cold full load of Contacts is minutes), so we keep the local cache
+// for a week to spare returning users that cold load. Trade-off: records
+// added/deleted by OTHER users or directly in FileMaker can lag up to this long
+// in the list (in-app create/edit/delete patch the cache live). The real fix for
+// both speed AND freshness is the server-side replica.
+const IDB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const memCache = {};
 
 // When true, a present (even stale) cache is displayed as-is and NOT bulk-
