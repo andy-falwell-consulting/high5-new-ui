@@ -72,6 +72,39 @@ export default async function handler(req, res) {
       return res.status(200).json(updated);
     }
 
+    // Read-only: fetch an invoice by QBO Id, or by DocNumber (ref #).
+    if (action === 'get-invoice') {
+      const { invoiceId, docNumber } = req.body;
+      if (invoiceId) {
+        const data = await qboRequest(`/invoice/${invoiceId}`, 'GET');
+        return res.status(200).json(data);
+      }
+      if (docNumber) {
+        const token = await getAccessToken();
+        const q = `SELECT * FROM Invoice WHERE DocNumber = '${String(docNumber).replace(/'/g, "\\'")}'`;
+        const r = await fetch(`${QBO_BASE}/query?query=${encodeURIComponent(q)}&minorversion=65`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        });
+        const data = await r.json();
+        return res.status(r.ok ? 200 : r.status).json(data);
+      }
+      return res.status(400).json({ error: 'invoiceId or docNumber required' });
+    }
+
+    // Read-only: fetch the styled invoice PDF (base64). The real feature will
+    // stream this into a FileMaker container; here it validates access + format.
+    if (action === 'invoice-pdf') {
+      const { invoiceId } = req.body;
+      if (!invoiceId) return res.status(400).json({ error: 'invoiceId required' });
+      const token = await getAccessToken();
+      const r = await fetch(`${QBO_BASE}/invoice/${invoiceId}/pdf?minorversion=65`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' },
+      });
+      if (!r.ok) return res.status(r.status).json({ error: await r.text() });
+      const buf = Buffer.from(await r.arrayBuffer());
+      return res.status(200).json({ ok: true, size: buf.length, isPdf: buf.slice(0, 5).toString('latin1').startsWith('%PDF') });
+    }
+
     return res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     console.error('QBO error:', e.message);
