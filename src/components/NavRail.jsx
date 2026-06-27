@@ -170,11 +170,11 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: "'Oswald', sans-serif", fontSize: 15, fontWeight: 700,
             border: '1px solid #333', flexShrink: 0,
-          }}>H5</span>
+          }}>B</span>
           {showLabels && (
             <div style={{ lineHeight: 1.2, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: c.textActive }}>High5</div>
-              <div style={{ fontSize: 13, color: c.sub }}>Core database</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: c.textActive }}>Belay</div>
+              <div style={{ fontSize: 13, color: c.sub }}>High 5 Ops</div>
             </div>
           )}
           {showLabels && (
