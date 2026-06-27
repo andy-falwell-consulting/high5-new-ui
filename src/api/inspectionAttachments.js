@@ -130,3 +130,12 @@ export async function downloadReport(record, onStage) {
 }
 
 export { inspectionMeta };
+
+// Adapter in the shape AttachmentsPanel expects ({ list, upload, remove,
+// freshUrl }), so Inspections can use the shared panel like the other modules.
+export const inspectionAttachments = {
+  list: listAttachments,
+  upload: uploadAttachment,
+  remove: deleteAttachment,
+  freshUrl: getFreshAttachmentUrl,
+};

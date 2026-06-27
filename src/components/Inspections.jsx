@@ -4,7 +4,8 @@ import { useAllRecords } from '../hooks/useAllRecords';
 import ListToolbar, { useListControls, ListBody } from './ListControls';
 import RecordSaveBar from './RecordSaveBar';
 import RecordFormModal from './RecordFormModal';
-import { listAttachments, uploadAttachment, deleteAttachment, generateAndAttachReport, downloadReport, getFreshAttachmentUrl } from '../api/inspectionAttachments';
+import { generateAndAttachReport, downloadReport, inspectionAttachments } from '../api/inspectionAttachments';
+import AttachmentsPanel from './AttachmentsPanel';
 import './Inspections.css';
 
 const LAYOUT = 'Inspections_New';
@@ -129,15 +130,12 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
-  const [attachments, setAttachments] = useState([]);
-  const [attLoading, setAttLoading] = useState(false);
-  const [attBusy, setAttBusy] = useState(null); // 'upload' | 'report-attach' | 'report-download' | recordId being deleted
+  const [attBusy, setAttBusy] = useState(null); // 'report-attach' | 'report-download'
   const [attStage, setAttStage] = useState(null); // progress label while a report runs
   const [attError, setAttError] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
+  const [attReload, setAttReload] = useState(0); // bump to make AttachmentsPanel re-list
   const [showNew, setShowNew] = useState(false);
   const isResizing = useRef(false);
-  const fileInputRef = useRef(null);
 
   const parseFmDate = v => {
     if (!v) return 0;
@@ -191,64 +189,17 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
     return () => { alive = false; };
   }, [navTarget, records]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Attachments ──
+  // ── Attachments live in the shared <AttachmentsPanel>; only inspection-report
+  // generation stays here (passed into the panel via `actions`). ──
   const inspId = selected?.fieldData?._kpt__Inspection_ID;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on inspection change
-    setAttachments([]); setAttError(null);
-    if (!inspId) return;
-    let alive = true;
-    setAttLoading(true);
-    listAttachments(inspId)
-      .then(a => { if (alive) setAttachments(a); })
-      .catch(() => { if (alive) setAttError('Could not load attachments'); })
-      .finally(() => { if (alive) setAttLoading(false); });
-    return () => { alive = false; };
-  }, [inspId]);
-
-  async function handleFiles(files) {
-    if (!inspId || !files?.length) return;
-    setAttBusy('upload'); setAttError(null);
-    try {
-      // Prepend each uploaded file as it lands, so the grid fills in live.
-      for (const file of files) {
-        const card = await uploadAttachment(inspId, file);
-        setAttachments(a => [card, ...a]);
-      }
-    } catch (e) { setAttError(e.message || 'Upload failed'); }
-    finally { setAttBusy(null); }
-  }
-  // Open an attachment. The just-generated card holds an in-memory blob URL that
-  // opens instantly; any other card re-fetches a fresh container URL at click
-  // time so the file stays openable/downloadable forever (FMP URLs expire).
-  async function handleOpenAttachment(a) {
-    setAttError(null);
-    if (a.url && a.url.startsWith('blob:')) { window.open(a.url, '_blank', 'noopener'); return; }
-    const w = window.open('', '_blank'); // open synchronously to dodge popup blockers
-    try {
-      const fresh = await getFreshAttachmentUrl(a.recordId);
-      if (!fresh) throw new Error('File is no longer available');
-      const abs = fresh.startsWith('http') ? fresh : window.location.origin + fresh;
-      if (w) w.location.href = abs; else window.open(abs, '_blank', 'noopener');
-    } catch (e) {
-      if (w) w.close();
-      setAttError(e.message || 'Could not open file');
-    }
-  }
-  async function handleDeleteAtt(recordId) {
-    setAttBusy(recordId); setAttError(null);
-    try { await deleteAttachment(recordId); setAttachments(a => a.filter(x => x.recordId !== recordId)); }
-    catch (e) { setAttError(e.message || 'Delete failed'); }
-    finally { setAttBusy(null); }
-  }
   async function handleGenerateReport(attach) {
     if (!selected) return;
     setAttBusy(attach ? 'report-attach' : 'report-download');
     setAttStage('Building PDF…'); setAttError(null);
     try {
       if (attach) {
-        const card = await generateAndAttachReport(selected, setAttStage);
-        setAttachments(a => [card, ...a]); // optimistic — no re-list round-trip
+        await generateAndAttachReport(selected, setAttStage);
+        setAttReload(n => n + 1); // tell the panel to re-list so the report shows
       } else {
         await downloadReport(selected, setAttStage);
       }
@@ -450,82 +401,23 @@ export default function Inspections({ navTarget, onClearNav, onRecordSelect } = 
                 )}
               </Section>
 
-              <Section title="Attachments" icon="❏">
-                <div className="insp-att-actions">
-                  <button
-                    className="insp-att-btn primary"
-                    disabled={attBusy === 'report-attach' || attBusy === 'report-download'}
-                    onClick={() => handleGenerateReport(true)}
-                  >
-                    {attBusy === 'report-attach' ? (attStage || 'Working…') : '＋ Generate report & attach'}
-                  </button>
-                  <button
-                    className="insp-att-btn"
-                    disabled={attBusy === 'report-attach' || attBusy === 'report-download'}
-                    onClick={() => handleGenerateReport(false)}
-                  >
-                    {attBusy === 'report-download' ? (attStage || 'Working…') : '⤓ Download report'}
-                  </button>
-                  <button
-                    className="insp-att-btn"
-                    disabled={attBusy === 'upload'}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {attBusy === 'upload' ? 'Uploading…' : '⇪ Upload file'}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    style={{ display: 'none' }}
-                    onChange={e => { handleFiles([...e.target.files]); e.target.value = ''; }}
-                  />
-                </div>
-
-                {attError && <p className="insp-att-error">{attError}</p>}
-
-                <div
-                  className={`insp-att-drop${dragOver ? ' over' : ''}`}
-                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={e => { e.preventDefault(); setDragOver(false); handleFiles([...e.dataTransfer.files]); }}
-                >
-                  {attLoading ? (
-                    <p className="insp-att-empty">Loading attachments…</p>
-                  ) : attachments.length === 0 ? (
-                    <p className="insp-att-empty">No attachments yet — drop files here, or use the buttons above.</p>
-                  ) : (
-                    <ul className="insp-att-grid">
-                      {attachments.map(a => (
-                        <li key={a.recordId} className="insp-att-card">
-                          <a
-                            className="insp-att-thumb"
-                            href={a.url || undefined}
-                            onClick={e => { e.preventDefault(); if (a.hasFile) handleOpenAttachment(a); }}
-                            title={a.hasFile ? 'Open' : 'No file'}
-                          >
-                            {a.isImage && a.url
-                              ? <img src={a.url} alt={a.name} />
-                              : <span className="insp-att-ext">{(a.name.split('.').pop() || '?').toUpperCase()}</span>}
-                          </a>
-                          <div className="insp-att-meta">
-                            <a className="insp-att-name" href={a.url || undefined} onClick={e => { e.preventDefault(); if (a.hasFile) handleOpenAttachment(a); }} title={a.name}>{a.name}</a>
-                            <span className="insp-att-sub">{a.created ? a.created.split(' ')[0] : 'Just now'}{a.by ? ` · ${a.by}` : ''}</span>
-                          </div>
-                          <button
-                            className="insp-att-del"
-                            title="Delete attachment"
-                            disabled={attBusy === a.recordId}
-                            onClick={() => handleDeleteAtt(a.recordId)}
-                          >
-                            {attBusy === a.recordId ? '…' : '✕'}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </Section>
+              <AttachmentsPanel
+                parentId={inspId}
+                api={inspectionAttachments}
+                invoiceDocNumber={selected?.fieldData?._kat__QuickBooks_Invoice_ID}
+                reloadSignal={attReload}
+                actions={(
+                  <>
+                    <button className="att-btn" disabled={attBusy === 'report-attach' || attBusy === 'report-download'} onClick={() => handleGenerateReport(true)}>
+                      {attBusy === 'report-attach' ? (attStage || 'Working…') : '＋ Generate report & attach'}
+                    </button>
+                    <button className="att-btn" disabled={attBusy === 'report-attach' || attBusy === 'report-download'} onClick={() => handleGenerateReport(false)}>
+                      {attBusy === 'report-download' ? (attStage || 'Working…') : '⤓ Download report'}
+                    </button>
+                  </>
+                )}
+              />
+              {attError && <p className="insp-att-error">{attError}</p>}
 
               <div className="insp-record-footer">
                 ID {f._kpt__Inspection_ID} · Record {selected.recordId} · Created {f.zz__Created_On?.split(' ')[0]} by {f.zz__Created_By} · Modified {f.zz__Modified_On?.split(' ')[0] || '—'} by {f.zz__Modified_By}
