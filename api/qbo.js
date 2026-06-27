@@ -102,7 +102,9 @@ export default async function handler(req, res) {
       });
       if (!r.ok) return res.status(r.status).json({ error: await r.text() });
       const buf = Buffer.from(await r.arrayBuffer());
-      return res.status(200).json({ ok: true, size: buf.length, isPdf: buf.slice(0, 5).toString('latin1').startsWith('%PDF') });
+      const out = { ok: true, size: buf.length, isPdf: buf.slice(0, 5).toString('latin1').startsWith('%PDF') };
+      if (req.body.base64) out.base64 = buf.toString('base64');
+      return res.status(200).json(out);
     }
 
     return res.status(400).json({ error: 'Unknown action' });
