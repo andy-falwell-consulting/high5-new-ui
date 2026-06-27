@@ -398,6 +398,29 @@ async function fetchAllFromServer(layout, { onProgress, batchSize, cacheVersion,
   return { records: all, total };
 }
 
+// Layouts mirrored into the server-side Redis replica (FMP layout → replica key,
+// see api/_replica.js). For these, a cold load reads one fast endpoint instead
+// of paginating FileMaker for minutes.
+const REPLICA_LAYOUTS = { 'Contacts_New': 'contacts' };
+
+// Try the Redis replica for a full-set load. Returns { records, total } or null
+// to fall back to FileMaker (replica not configured, not yet populated, errored,
+// or a filtered/find query the replica can't serve).
+async function fetchFromReplica(layout, findQuery) {
+  const key = REPLICA_LAYOUTS[layout];
+  if (!key || findQuery) return null;
+  const env = getCurrentEnv();
+  try {
+    const r = await fetch(`/api/records?layout=${encodeURIComponent(key)}&db=${encodeURIComponent(env.db)}`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (!data?.records?.length) return null; // not warmed yet → fall back to FMP
+    return { records: data.records, total: data.count ?? data.records.length };
+  } catch {
+    return null;
+  }
+}
+
 export async function getAllRecords(layout, { onProgress, batchSize = 100, slimForStorage, cacheVersion, findQuery, sort } = {}) {
   const cached = await readCacheAsync(layout, cacheVersion);
 
@@ -412,6 +435,14 @@ export async function getAllRecords(layout, { onProgress, batchSize = 100, slimF
     // rather than re-fetching everything (which starves interactive calls).
     if (!LAZY_REFRESH) fetchAllFromServer(layout, { batchSize, cacheVersion, findQuery, sort }).catch(() => {});
     return cached;
+  }
+
+  // No local cache: try the fast Redis replica before the slow FMP pagination.
+  const repl = await fetchFromReplica(layout, findQuery);
+  if (repl) {
+    await writeCache(layout, repl.records, repl.total, true, cacheVersion);
+    if (onProgress) onProgress({ records: repl.records, total: repl.total, done: true });
+    return { records: repl.records, total: repl.total };
   }
 
   return fetchAllFromServer(layout, { onProgress, batchSize, cacheVersion, findQuery, sort });
