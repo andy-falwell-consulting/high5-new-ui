@@ -4,5 +4,9 @@
     { "source": "/Streaming_SSL/:path*", "destination": "/api/proxy?prefix=Streaming_SSL&path=:path*" },
     { "source": "/oauth/:path*", "destination": "/api/proxy?prefix=oauth&path=:path*" },
     { "source": "/fmws/:path*", "destination": "/api/proxy?prefix=fmws&path=:path*" }
+  ],
+  "crons": [
+    { "path": "/api/sync?db=High5_Core4", "schedule": "*/5 * * * *" },
+    { "path": "/api/sync?db=High5_Core4_Dev", "schedule": "*/5 * * * *" }
   ]
 }

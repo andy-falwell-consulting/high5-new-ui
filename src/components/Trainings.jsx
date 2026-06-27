@@ -347,7 +347,7 @@ export default function Trainings({ navTarget, onClearNav, onRecordSelect } = {}
               </Section>
 
               <div className="trn-section trn-section-att">
-                <AttachmentsPanel parentId={f._kpt__TrainingProposal_ID} api={trainingAttachments} title="Photos" />
+                <AttachmentsPanel parentId={f._kpt__TrainingProposal_ID} api={trainingAttachments} title="Photos" invoiceDocNumber={f._kat__QuickBooks_Invoice_ID} />
               </div>
 
               <div className="trn-record-footer">

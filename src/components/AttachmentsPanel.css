@@ -28,6 +28,8 @@
 }
 .att-btn:hover:not(:disabled) { background: var(--att-surface-2); color: var(--att-text); }
 .att-btn:disabled { opacity: 0.5; cursor: default; }
+.att-btn.invoice { border-color: #2ca01c66; color: #4cc63a; }
+.att-btn.invoice:hover:not(:disabled) { background: #2ca01c1a; border-color: #2ca01c; color: #6fdc5c; }
 
 .att-error { color: #f87171; font-size: 14px; margin: 0 0 10px; }
 
