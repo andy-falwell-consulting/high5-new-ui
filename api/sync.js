@@ -14,13 +14,18 @@ export default async function handler(req, res) {
   const only = req.query.layout;
   const keys = only ? [only] : Object.keys(REPLICATED);
 
-  // Per-run budget shared across layouts (leave headroom under maxDuration).
-  const perLayoutBudget = Math.floor(270000 / keys.length);
+  // Shared deadline with headroom under maxDuration (300s). Each layout gets a
+  // fair share of the *remaining* time, so already-synced layouts (incremental
+  // no-op / fresh snapshot) return almost instantly and hand their budget to
+  // whichever layouts are still backfilling.
+  const deadline = Date.now() + 270000;
   const out = {};
-  for (const key of keys) {
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
     if (!REPLICATED[key]) { out[key] = { error: 'not replicated' }; continue; }
+    const budget = Math.max(0, Math.floor((deadline - Date.now()) / (keys.length - i)));
     try {
-      const meta = await runSync(db, key, perLayoutBudget);
+      const meta = await runSync(db, key, budget);
       out[key] = { phase: meta.phase, count: meta.count, total: meta.total, lastSync: meta.lastSync };
     } catch (e) {
       out[key] = { error: String(e?.message || e) };

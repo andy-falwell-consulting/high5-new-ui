@@ -401,7 +401,15 @@ async function fetchAllFromServer(layout, { onProgress, batchSize, cacheVersion,
 // Layouts mirrored into the server-side Redis replica (FMP layout → replica key,
 // see api/_replica.js). For these, a cold load reads one fast endpoint instead
 // of paginating FileMaker for minutes.
-const REPLICA_LAYOUTS = { 'Contacts_New': 'contacts' };
+const REPLICA_LAYOUTS = {
+  'Contacts_New': 'contacts',
+  'Estimates_New': 'estimates',
+  'Inspections_New': 'inspections',
+  'trainings_New': 'trainings',
+  'RMI_New': 'rmi',
+  'OELookup_New': 'oelookup',
+  'Products & Services_New': 'products',
+};
 
 // Try the Redis replica for a full-set load. Returns { records, total } or null
 // to fall back to FileMaker (replica not configured, not yet populated, errored,

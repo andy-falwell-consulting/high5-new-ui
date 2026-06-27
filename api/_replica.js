@@ -13,10 +13,21 @@ const FMP_USER = 'admin';
 const FMP_PASS = 'itstime';
 const ALLOWED_DBS = new Set(['High5_Core4', 'High5_Core4_Stage', 'High5_Core4_Dev']);
 
-// Layouts we replicate. `key` is the app-facing id; `layout` the FMP layout;
-// `modField` a searchable modification timestamp used for incremental sync.
+// Layouts we replicate. `key` is the app-facing id; `layout` the FMP layout.
+// Two kinds:
+//  - incremental: has a searchable `modField` (modification timestamp). Backfill
+//    once, then pull only records modified since the high-water mark.
+//  - snapshot: no usable modification field, so we can't sync incrementally.
+//    Backfill, then re-page the whole layout every `refreshMs` (small, rarely
+//    changing reference/catalog data).
 export const REPLICATED = {
-  contacts: { layout: 'Contacts_New', modField: 'zz__Modified_On' },
+  contacts:    { layout: 'Contacts_New',            modField: 'zz__Modified_On' },
+  estimates:   { layout: 'Estimates_New',           modField: 'zz__Modified_On' },
+  inspections: { layout: 'Inspections_New',         modField: 'zz__Modified_On' },
+  trainings:   { layout: 'trainings_New',           modField: 'zz__Modified_On' },
+  rmi:         { layout: 'RMI_New',                 modField: 'zz__Modified_On' },
+  oelookup:    { layout: 'OELookup_New',            snapshot: true, refreshMs: 6 * 3600 * 1000 },
+  products:    { layout: 'Products & Services_New', snapshot: true, refreshMs: 6 * 3600 * 1000 },
 };
 
 const rk = (db, layout, suffix) => `repl:${db}:${layout}:${suffix}`;
@@ -59,10 +70,22 @@ export async function runSync(db, key, budgetMs = 260000) {
   if (!ALLOWED_DBS.has(db)) throw new Error('db not allowed');
   const cfg = REPLICATED[key];
   if (!cfg) throw new Error('layout not replicated: ' + key);
-  const { layout, modField } = cfg;
+  const { layout, modField, snapshot, refreshMs = 6 * 3600 * 1000 } = cfg;
   const started = Date.now();
-  const token = await fmpToken(db);
   const meta = await getMeta(db, layout);
+
+  // Snapshot layouts can't sync incrementally (no modField). When idle, kick a
+  // fresh full re-page only once the data has gone stale; otherwise no-op so we
+  // don't re-page a rarely-changing layout every cron tick.
+  if (snapshot && meta.phase === 'idle') {
+    if (Date.now() - (meta.lastSync || 0) < refreshMs) return meta;
+    meta.phase = 'backfill';
+    meta.cursor = 1;
+    meta.count = 0;
+    meta.total = null; // re-read foundCount in case records were added/removed
+  }
+
+  const token = await fmpToken(db);
 
   if (meta.phase === 'backfill') {
     while (Date.now() - started < budgetMs) {
@@ -74,7 +97,7 @@ export async function runSync(db, key, budgetMs = 260000) {
       const entries = {};
       for (const r of data) {
         entries[r.recordId] = slim(r);
-        const ts = fmTs(r.fieldData?.[modField]);
+        const ts = modField ? fmTs(r.fieldData?.[modField]) : 0;
         if (ts > meta.lastModifiedMs) meta.lastModifiedMs = ts;
       }
       await redis.hset(rk(db, layout, 'recs'), entries);
@@ -82,9 +105,9 @@ export async function runSync(db, key, budgetMs = 260000) {
       meta.count += data.length;
       // Persist progress every page so a killed slice resumes instead of restarting.
       await redis.set(rk(db, layout, 'meta'), meta);
-      if (meta.count >= meta.total) { meta.phase = 'idle'; break; }
+      if (meta.total != null && meta.count >= meta.total) { meta.phase = 'idle'; break; }
     }
-  } else {
+  } else if (!snapshot) {
     // Incremental: pull records modified since the high-water mark (minus a day
     // of slop), upsert them. Idempotent. (Deletions handled by a separate
     // reconcile — not yet implemented.)
