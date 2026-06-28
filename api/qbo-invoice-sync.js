@@ -145,7 +145,11 @@ export async function runInvoiceSync(db, budgetMs = 260000) {
 
 export default async function handler(req, res) {
   if (!(await authorized(req))) return res.status(401).json({ error: 'unauthorized' });
-  const db = req.query.db || 'High5_Core4';
+  const db = req.query.db || 'High5_Core4_Dev';
+  // Safety: refuse production until explicitly enabled, so validation stays on Dev.
+  if (db === 'High5_Core4' && process.env.QBO_SYNC_ALLOW_PROD !== '1') {
+    return res.status(403).json({ error: 'production sync disabled (set QBO_SYNC_ALLOW_PROD=1 to enable)' });
+  }
   try {
     const meta = await runInvoiceSync(db, 270000);
     return res.status(200).json({ db, phase: meta.phase, upserted: meta.upserted, skipped: meta.skipped, cursor: meta.cursor, hwm: meta.hwm, lastSync: meta.lastSync });
