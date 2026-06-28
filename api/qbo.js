@@ -91,6 +91,34 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'invoiceId or docNumber required' });
     }
 
+    // Read-only: page the full QBO customer list (slim fields) for
+    // reconciliation against FileMaker contacts. QBO caps MAXRESULTS at 1000;
+    // caller pages via `start` (1-based STARTPOSITION) until fewer than `max`
+    // come back.
+    if (action === 'list-customers') {
+      const token = await getAccessToken();
+      const start = Number(req.body.start) || 1;
+      const max = Math.min(Number(req.body.max) || 1000, 1000);
+      const q = `SELECT * FROM Customer STARTPOSITION ${start} MAXRESULTS ${max}`;
+      const r = await fetch(`${QBO_BASE}/query?query=${encodeURIComponent(q)}&minorversion=65`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      const customers = (data.QueryResponse?.Customer || []).map(c => ({
+        id: c.Id,
+        displayName: c.DisplayName,
+        companyName: c.CompanyName,
+        fullyQualifiedName: c.FullyQualifiedName,
+        email: c.PrimaryEmailAddr?.Address,
+        active: c.Active,
+        city: c.BillAddr?.City,
+        state: c.BillAddr?.CountrySubDivisionCode,
+        job: c.Job,
+      }));
+      return res.status(200).json({ customers, count: customers.length, start });
+    }
+
     // Read-only: fetch the styled invoice PDF (base64). The real feature will
     // stream this into a FileMaker container; here it validates access + format.
     if (action === 'invoice-pdf') {
