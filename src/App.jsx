@@ -60,6 +60,13 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
   const [reminderDue, setReminderDue] = useState(0)
 
+  // Browser-tab title reflects the active module, so multiple open tabs are
+  // distinguishable (e.g. "Inspections · Belay"). Home keeps the brand title.
+  useEffect(() => {
+    const label = MODULES.find(m => m.id === activeModule)?.label
+    document.title = label && activeModule !== 'home' ? `${label} · Belay` : 'Belay — High 5 Ops'
+  }, [activeModule])
+
   // Auth check — /api/me returns 401 if not logged in, 404 in local dev (pass through)
   useEffect(() => {
     fetch('/api/me')
