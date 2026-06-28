@@ -119,6 +119,30 @@ export default async function handler(req, res) {
       return res.status(200).json({ customers, count: customers.length, start });
     }
 
+    // Read-only: page the full QBO invoice list (slim: DocNumber + customer +
+    // amount/date) so we can reconcile FileMaker records (which store invoice
+    // DocNumbers) to QBO customers via each invoice's CustomerRef.
+    if (action === 'list-invoices') {
+      const token = await getAccessToken();
+      const start = Number(req.body.start) || 1;
+      const max = Math.min(Number(req.body.max) || 1000, 1000);
+      const q = `SELECT * FROM Invoice STARTPOSITION ${start} MAXRESULTS ${max}`;
+      const r = await fetch(`${QBO_BASE}/query?query=${encodeURIComponent(q)}&minorversion=65`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      const invoices = (data.QueryResponse?.Invoice || []).map(i => ({
+        id: i.Id,
+        docNumber: i.DocNumber,
+        customerId: i.CustomerRef?.value,
+        customerName: i.CustomerRef?.name,
+        txnDate: i.TxnDate,
+        total: i.TotalAmt,
+      }));
+      return res.status(200).json({ invoices, count: invoices.length, start });
+    }
+
     // Read-only: fetch the styled invoice PDF (base64). The real feature will
     // stream this into a FileMaker container; here it validates access + format.
     if (action === 'invoice-pdf') {
