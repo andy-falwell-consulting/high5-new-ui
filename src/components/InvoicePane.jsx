@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getRecord, invalidateRecord, findRecords } from '../api/filemaker'
+import { getCurrentEnv } from '../config/fmpEnvironments'
 import './InvoicePane.css'
 
 // Shared invoice pane. Renders a contact's invoices from the Portal__Invoices
@@ -66,19 +67,35 @@ export default function InvoicePane({ contact, title = 'Invoices' }) {
     }
   }
 
-  async function viewPdf(recordId, e) {
+  async function viewPdf(recordId, ref, e) {
     e?.stopPropagation()
     if (!recordId) return
+    // Hold a tab open within the user gesture (popup blockers); fill it after.
+    const win = window.open('', '_blank')
     setBusy(recordId)
     try {
       invalidateRecord(INVO_LAYOUT, recordId)
-      const res = await getRecord(INVO_LAYOUT, recordId)
-      const streaming = res?.response?.data?.[0]?.fieldData?.Invoice_PDF
-      if (!streaming) { window.alert('No PDF attached to this invoice yet.'); return }
+      let res = await getRecord(INVO_LAYOUT, recordId)
+      let streaming = res?.response?.data?.[0]?.fieldData?.Invoice_PDF
+      if (!streaming) {
+        // Lazily fetch the PDF from QBO and attach it to the container, then re-read.
+        const db = getCurrentEnv().db
+        const resp = await fetch('/api/qbo', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'attach-invoice-pdf', db, recordId, docNumber: ref }),
+        })
+        if (resp.ok) {
+          invalidateRecord(INVO_LAYOUT, recordId)
+          res = await getRecord(INVO_LAYOUT, recordId)
+          streaming = res?.response?.data?.[0]?.fieldData?.Invoice_PDF
+        }
+      }
+      if (!streaming) { win?.close(); window.alert('No PDF available for this invoice.'); return }
       let url = streaming
       try { const u = new URL(streaming); url = u.pathname + u.search } catch { /* use as-is */ }
-      window.open(url, '_blank', 'noopener')
+      if (win) win.location = url; else window.open(url, '_blank')
     } catch {
+      win?.close()
       window.alert('Could not open the invoice PDF.')
     } finally {
       setBusy(null)
@@ -120,7 +137,7 @@ export default function InvoicePane({ contact, title = 'Invoices' }) {
                   <td className="num">{money(total)}</td>
                   <td className="num" style={{ color: balance > 0 ? '#e8322a' : undefined }}>{money(balance)}</td>
                   <td><span className={`invp-pill ${status === 'Paid' ? 'paid' : status === 'Open' ? 'open' : 'na'}`}>{status}</span></td>
-                  <td className="invp-actcell"><button className="invp-pdf" disabled={busy === rid} onClick={e => viewPdf(rid, e)}>{busy === rid ? '…' : '📄 PDF'}</button></td>
+                  <td className="invp-actcell"><button className="invp-pdf" disabled={busy === rid} onClick={e => viewPdf(rid, ref, e)}>{busy === rid ? '…' : '📄 PDF'}</button></td>
                 </tr>,
                 expanded && (
                   <tr key={rid + '-x'} className="invp-detail-row">
