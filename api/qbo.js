@@ -1,5 +1,6 @@
 import { getGoogleSession } from './_googleSession.js';
-import { getAccessToken, qboRequest, QBO_BASE } from './_qbo.js';
+import { getAccessToken, qboRequest, qboQuery, QBO_BASE } from './_qbo.js';
+import { fmpToken, fmUploadContainer, ALLOWED_DBS } from './_fmp.js';
 
 // Auth gate: a logged-in user (Google session cookie) OR a server job presenting
 // the sync key (x-sync-key header / ?key=, matched against QBO_SYNC_KEY). The
@@ -86,6 +87,30 @@ export default async function handler(req, res) {
         balance: i.Balance, updated: i.MetaData?.LastUpdatedTime,
       }));
       return res.status(200).json({ invoices, count: invoices.length, start });
+    }
+
+    // Lazy PDF attach: fetch the styled invoice PDF from QBO and stream it into
+    // an INVO record's Invoice_PDF container. Called by the invoice pane the
+    // first time a user views an invoice whose container is empty.
+    if (action === 'attach-invoice-pdf') {
+      const { db, recordId, docNumber } = req.body;
+      let { invoiceId } = req.body;
+      if (!db || !ALLOWED_DBS.has(db)) return res.status(400).json({ error: 'valid db required' });
+      if (!recordId) return res.status(400).json({ error: 'recordId required' });
+      if (!invoiceId && docNumber) {
+        const q = await qboQuery(`SELECT Id FROM Invoice WHERE DocNumber = '${String(docNumber).replace(/'/g, "\\'")}'`);
+        invoiceId = q.Invoice?.[0]?.Id;
+      }
+      if (!invoiceId) return res.status(404).json({ error: 'QBO invoice not found' });
+      const token = await getAccessToken();
+      const r = await fetch(`${QBO_BASE}/invoice/${invoiceId}/pdf?minorversion=65`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' },
+      });
+      if (!r.ok) return res.status(r.status).json({ error: await r.text() });
+      const buf = Buffer.from(await r.arrayBuffer());
+      const fmTok = await fmpToken(db);
+      await fmUploadContainer(db, 'Invoices_Form', recordId, 'Invoice_PDF', buf, `invoice_${docNumber || invoiceId}.pdf`, fmTok);
+      return res.status(200).json({ ok: true, size: buf.length });
     }
 
     // Read-only: fetch the styled invoice PDF (base64). The real feature will

@@ -21,6 +21,9 @@ const PAGE = 25; // QBO invoices per page (each does several FMP writes → keep
 
 async function authorized(req) {
   if (SYNC_KEY && (req.headers['x-sync-key'] === SYNC_KEY || req.query?.key === SYNC_KEY)) return true;
+  // Vercel Cron attaches `Authorization: Bearer <CRON_SECRET>` when that env var is set.
+  const cron = process.env.CRON_SECRET;
+  if (cron && req.headers.authorization === `Bearer ${cron}`) return true;
   return !!(await getGoogleSession(req));
 }
 

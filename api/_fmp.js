@@ -61,3 +61,22 @@ export async function fmDelete(db, layout, recordId, token) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+// Upload bytes into a container field (repetition 1) via multipart/form-data.
+export async function fmUploadContainer(db, layout, recordId, field, buffer, filename, token) {
+  const boundary = '----belayContainerBoundary';
+  const CRLF = '\r\n';
+  const head = Buffer.from(
+    `--${boundary}${CRLF}Content-Disposition: form-data; name="upload"; filename="${filename}"${CRLF}` +
+    `Content-Type: application/pdf${CRLF}${CRLF}`);
+  const tail = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
+  const body = Buffer.concat([head, buffer, tail]);
+  const r = await fetch(url(db, layout, `/records/${recordId}/containers/${encodeURIComponent(field)}/1`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    body,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (j?.messages?.[0]?.code !== '0') throw new Error('FMP container upload failed: ' + JSON.stringify(j?.messages || j));
+  return true;
+}
