@@ -10,7 +10,10 @@ export const config = { maxDuration: 60 };
 const FMP_HOST = 'https://ILELLCO.pcifmhosting.com';
 const FMP_BASIC = 'Basic ' + Buffer.from('admin:itstime').toString('base64');
 const ALLOWED_DBS = ['High5_Core4_Dev', 'High5_Core4_Stage', 'High5_Core4'];
-const MODEL = 'claude-haiku-4-5';
+// Agent model. Defaults to Sonnet (best fit for tool-use, query generation, and
+// write actions); override per-environment with the AGENT_MODEL env var in Vercel
+// — e.g. set it to claude-haiku-4-5 to trade some reliability for speed/cost.
+const MODEL = process.env.AGENT_MODEL || 'claude-sonnet-4-6';
 const MAX_TOOL_TURNS = 12;
 // Output cap per turn. Generous so long answers (e.g. a 50-row invoice table +
 // summary) don't get cut off mid-sentence; 2000 was truncating list results.
