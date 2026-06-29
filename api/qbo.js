@@ -116,8 +116,13 @@ export default async function handler(req, res) {
     // Read-only: fetch the styled invoice PDF (base64). The real feature will
     // stream this into a FileMaker container; here it validates access + format.
     if (action === 'invoice-pdf') {
-      const { invoiceId } = req.body;
-      if (!invoiceId) return res.status(400).json({ error: 'invoiceId required' });
+      let { invoiceId } = req.body;
+      const { docNumber } = req.body;
+      if (!invoiceId && docNumber) {
+        const q = await qboQuery(`SELECT Id FROM Invoice WHERE DocNumber = '${String(docNumber).replace(/'/g, "\\'")}'`);
+        invoiceId = q.Invoice?.[0]?.Id;
+      }
+      if (!invoiceId) return res.status(400).json({ error: 'invoiceId or docNumber required' });
       const token = await getAccessToken();
       const r = await fetch(`${QBO_BASE}/invoice/${invoiceId}/pdf?minorversion=65`, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' },

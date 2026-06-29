@@ -7,7 +7,6 @@ import RecordSaveBar from './RecordSaveBar';
 import ComposeEmail from './ComposeEmail';
 import ReminderModal from './ReminderModal';
 import { invoiceRowInfo } from './InvoicePane';
-import { getCurrentEnv } from '../config/fmpEnvironments';
 import './Contacts.css';
 
 const LAYOUT = 'Contacts_New';
@@ -107,28 +106,25 @@ const TABS = [
 const money = v => '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2 });
 const num = v => Number(v || 0);
 
-const INVO_LAYOUT = 'Invoices_Form';
-// Invoices have no in-app record page, so "open" = view the QBO PDF: lazily
-// fetch + attach it on first view. Opens a tab synchronously so popup blockers
-// don't eat it, then points it at the container URL.
-async function openInvoicePdf(recordId, docNumber) {
-  if (!recordId) return;
+// Invoices have no in-app record page, so "open" = view the QBO PDF. We fetch the
+// PDF bytes from QBO (authenticated via the session cookie) and open them as a
+// blob — avoids FileMaker container URLs, which 401 when hit directly by the
+// browser. A tab is opened synchronously first so popup blockers don't eat it.
+async function openInvoicePdf(docNumber) {
+  if (!docNumber) return;
   const win = window.open('', '_blank');
   try {
-    invalidateRecord(INVO_LAYOUT, recordId);
-    let res = await getRecord(INVO_LAYOUT, recordId);
-    let streaming = res?.response?.data?.[0]?.fieldData?.Invoice_PDF;
-    if (!streaming) {
-      const resp = await fetch('/api/qbo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'attach-invoice-pdf', db: getCurrentEnv().db, recordId, docNumber }),
-      });
-      if (resp.ok) { invalidateRecord(INVO_LAYOUT, recordId); res = await getRecord(INVO_LAYOUT, recordId); streaming = res?.response?.data?.[0]?.fieldData?.Invoice_PDF; }
-    }
-    if (!streaming) { win?.close(); window.alert('No PDF available for this invoice.'); return; }
-    let url = streaming; try { const u = new URL(streaming); url = u.pathname + u.search; } catch { /* use as-is */ }
+    const resp = await fetch('/api/qbo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'invoice-pdf', docNumber, base64: true }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.base64) { win?.close(); window.alert('Could not load the invoice PDF.'); return; }
+    const bytes = Uint8Array.from(atob(data.base64), c => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
     if (win) win.location = url; else window.open(url, '_blank');
-  } catch { win?.close(); window.alert('Could not open the invoice PDF.'); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch { win?.close(); window.alert('Could not load the invoice PDF.'); }
 }
 
 const parseFmDate = v => {
@@ -550,7 +546,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
                     return groups.map(id => {
                       const onOpenRow =
                         id === 'invoices'
-                          ? (r) => openInvoicePdf(r.recordId, r['cntct_INVO::QuickBooks_Reference_Number'])
+                          ? (r) => openInvoicePdf(r['cntct_INVO::QuickBooks_Reference_Number'])
                           : PORTAL_NAV[id]
                             ? (r) => onNavigateTo?.(PORTAL_NAV[id], r.recordId)
                             : null;
