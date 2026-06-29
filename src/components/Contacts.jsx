@@ -15,9 +15,8 @@ const CACHE_VERSION = 2;
 
 const CONTACT_CREATE_FIELDS = [
   { key: 'Name_Organization', label: 'Name / Organization', type: 'text', required: true },
-  { key: 'Organization', label: 'Is an organization?', type: 'select', options: [{ value: '1', label: 'Yes (organization)' }, { value: '0', label: 'No (person)' }], default: '1' },
+  { key: 'Organization', label: 'Type', type: 'select', options: [{ value: '1', label: 'Organization' }, { value: '0', label: 'Individual' }], default: '1' },
   { key: 'Status', label: 'Status', type: 'select', options: ['Active', 'Inactive', 'Prospect'], default: 'Active' },
-  { key: 'Type', label: 'Type', type: 'text' },
   { key: 'Industry', label: 'Industry', type: 'text' },
   { key: 'Source', label: 'Source', type: 'text' },
   { key: 'Notes', label: 'Notes', type: 'textarea', wide: true },
@@ -60,17 +59,21 @@ const STATUS_COLOR = {
   default: '#64748b',
 };
 
-const TYPE_OPTIONS   = ['Individual', 'Organization', 'Vendor', 'Staff'];
 const STATUS_OPTIONS = ['Active', 'Inactive', 'Prospect'];
 
+// In FileMaker the contact's kind is stored on the `Organization` flag (1 = it's
+// an organization, blank/0 = an individual). The "Type" DDL in Belay reads/writes
+// that flag rather than the legacy free-text `Type` field, which isn't used.
+const typeLabel = fd => String(fd?.Organization) === '1' ? 'Organization' : 'Individual';
+
 const FIELD_LABELS = {
-  Name_Organization: 'Name / Organization', Type: 'Type', Status: 'Status',
+  Name_Organization: 'Name / Organization', Organization: 'Type', Status: 'Status',
   Industry: 'Industry', Department: 'Department', Source: 'Source',
   Spouse: 'Spouse', Birthdate: 'Birthdate',
   Client_Alert: 'Client alert', Keywords: 'Keywords', Notes: 'Notes',
 };
 
-const ABOUT_FIELDS = ['Name_Organization', 'Type', 'Status', 'Industry', 'Department', 'Source', 'Spouse', 'Birthdate'];
+const ABOUT_FIELDS = ['Name_Organization', 'Organization', 'Status', 'Industry', 'Department', 'Source', 'Spouse', 'Birthdate'];
 const NOTE_FIELDS  = ['Client_Alert', 'Keywords', 'Notes'];
 
 // FileMaker portal occurrence names, keyed by our logical id.
@@ -164,9 +167,10 @@ function FieldValue({ fieldKey, value, onChange, editing }) {
   const ch = v => onChange(fieldKey, v);
   if (!editing) {
     if (fieldKey === 'Notes') return <div className="ct-notes-display">{value || '—'}</div>;
+    if (fieldKey === 'Organization') return <span className="ct-value">{String(value) === '1' ? 'Organization' : 'Individual'}</span>;
     return <span className="ct-value">{value || '—'}</span>;
   }
-  if (fieldKey === 'Type') return <select className="ct-input" value={value || ''} onChange={e => ch(e.target.value)}><option value="">—</option>{TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select>;
+  if (fieldKey === 'Organization') return <select className="ct-input" value={String(value) === '1' ? '1' : '0'} onChange={e => ch(e.target.value)}><option value="1">Organization</option><option value="0">Individual</option></select>;
   if (fieldKey === 'Status') return <select className="ct-input" value={value || ''} onChange={e => ch(e.target.value)}><option value="">—</option>{STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select>;
   if (fieldKey === 'Notes') return <textarea className="ct-textarea" rows={5} value={value || ''} onChange={e => ch(e.target.value)} />;
   return <input className="ct-input" value={value || ''} onChange={e => ch(e.target.value)} />;
@@ -397,7 +401,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
                   <span className="ct-item-dot" style={{ background: color }} />
                   <div className="ct-item-text">
                     <div className="ct-item-name">{r.fieldData.zz__Display__ct || r.fieldData.Name_Organization || '—'}</div>
-                    <div className="ct-item-sub">{r.fieldData['cntct_ADDR::zz__Display_Single_Line_No_Zip__ct'] || r.fieldData.Type || ''}</div>
+                    <div className="ct-item-sub">{r.fieldData['cntct_ADDR::zz__Display_Single_Line_No_Zip__ct'] || typeLabel(r.fieldData)}</div>
                   </div>
                 </div>
               );
@@ -439,7 +443,7 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
                   {f.Status && (
                     <span className="ct-chip status" style={{ background: (STATUS_COLOR[f.Status] || '#64748b') + '22', color: STATUS_COLOR[f.Status] || '#64748b', borderColor: (STATUS_COLOR[f.Status] || '#64748b') + '44' }}>{f.Status}</span>
                   )}
-                  {f.Type && <span className="ct-chip type">{f.Type}</span>}
+                  {String(f.Organization) === '1' && <span className="ct-chip type">Organization</span>}
                   {f.Industry && <span className="ct-chip muted">{f.Industry}</span>}
                 </div>
                 <div className="ct-hero-chips">
