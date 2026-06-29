@@ -16,6 +16,9 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
   const [fmpName, setFmpName] = useState(() => getFmpUserName())
   const [fmpBusy, setFmpBusy] = useState(false)
   const [fmpError, setFmpError] = useState(null)
+  // First-run nudge on the search bar — shown once until the user opens search or dismisses it.
+  const [searchHint, setSearchHint] = useState(() => { try { return !localStorage.getItem('belay_search_hint_v1') } catch { return false } })
+  const dismissSearchHint = useCallback(() => { try { localStorage.setItem('belay_search_hint_v1', '1') } catch { /* ignore */ } setSearchHint(false) }, [])
 
   // Auto-connect the user's FileMaker write identity on mount (server mints a
   // user-bound token via Basic auth). Silent; falls back to admin if no account.
@@ -184,16 +187,25 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
         </div>
 
         {/* ── Command palette trigger ── */}
-        <div style={{ padding: showLabels ? '0 10px 8px' : '0 0 8px', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ position: 'relative', padding: showLabels ? '0 10px 8px' : '0 0 8px', display: 'flex', justifyContent: 'center' }}>
+          {searchHint && showLabels && (
+            <div style={{ position: 'absolute', top: 'calc(100% - 2px)', left: 10, right: 10, background: '#e8322a', color: '#fff', borderRadius: 8, padding: '8px 10px', fontSize: 12, lineHeight: 1.35, boxShadow: '0 6px 18px rgba(0,0,0,0.28)', zIndex: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <span style={{ flex: 1 }}><strong>✦ New:</strong> ask the assistant anything here — invoices, projects, email &amp; more.</span>
+                <button onClick={dismissSearchHint} aria-label="Dismiss" style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0, opacity: 0.85 }}>✕</button>
+              </div>
+              <span style={{ position: 'absolute', bottom: '100%', left: 22, width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '6px solid #e8322a' }} />
+            </div>
+          )}
           {showLabels ? (
-            <button onClick={onOpenPalette} title="Search or ask the assistant (⌘K)"
+            <button onClick={() => { dismissSearchHint(); onOpenPalette() }} title="Search or ask the assistant (⌘K)"
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 9px', background: c.footerBtn, border: `1px solid ${c.footerBorder}`, borderRadius: 8, cursor: 'pointer', color: c.mutedLabel }}>
               <span style={{ fontSize: 16 }}>⌕</span>
               <span style={{ flex: 1, textAlign: 'left', fontSize: 14 }}>Search or ask…</span>
               <span style={{ fontFamily: 'monospace', fontSize: 12, border: `1px solid ${c.divider}`, borderRadius: 4, padding: '1px 5px' }}>⌘K</span>
             </button>
           ) : (
-            <button onClick={onOpenPalette} title="Search or ask the assistant (⌘K)"
+            <button onClick={() => { dismissSearchHint(); onOpenPalette() }} title="Search or ask the assistant (⌘K)"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 30, background: 'none', border: 'none', cursor: 'pointer', color: c.mutedLabel, fontSize: 18 }}>⌕</button>
           )}
         </div>
