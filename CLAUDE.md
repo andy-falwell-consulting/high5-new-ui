@@ -59,6 +59,35 @@ The app uses Google OAuth for identity and Google Workspace access (Gmail, Calen
 
 **Env vars required:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. `GOOGLE_REDIRECT_URI` is optional (derived from request host if unset — register both staging and production URIs in Google Cloud Console).
 
+**Testing auth-gated features on previews — the rolling `preview` branch.**
+Google OAuth only accepts redirect URIs registered *exactly* in the Cloud
+Console (no wildcards), so a disposable feature branch's unique preview host
+can't sign in (its derived `…/api/google-callback` isn't registered). And
+`*.vercel.app` is on the Public Suffix List, so a production cookie can't be
+shared to a preview host — ruling out "just always use the prod callback."
+
+Fix: one stable preview host via a rolling `preview` branch. Vercel gives any
+branch a stable alias, so `preview` always deploys to
+`high5-new-ui-git-preview-andy-falwell-s-projects.vercel.app`. Register its
+callback **once** in Google (Credentials → the `GOOGLE_CLIENT_ID` client →
+Authorized redirect URIs →
+`https://high5-new-ui-git-preview-andy-falwell-s-projects.vercel.app/api/google-callback`;
+no JS-origin entry needed — server-side redirect flow).
+
+To test any branch with sign-in (one branch at a time):
+
+```
+git checkout -B preview origin/<branch> && git commit --allow-empty -m "preview deploy" && git push -f origin preview
+```
+
+The empty commit is **required**: Vercel keys builds by commit SHA, so a plain
+`git push -f origin <branch>:preview` points `preview` at an already-built SHA,
+Vercel deduplicates it, no `preview` deployment is created, and the alias 404s
+(`DEPLOYMENT_NOT_FOUND`). The empty commit forces a unique SHA → fresh build →
+the fixed `…-git-preview-…` URL resolves and sign-in works. `preview` isn't
+`main`, so branch protection doesn't block the force-push. This doesn't change
+the disposable-branch model — `preview` is just a rolling deploy target.
+
 **Auth gate in App.jsx:** calls `/api/me` on mount; blocks with `<LoginScreen />` on deployed environments (passes through on `localhost` since serverless functions don't run locally).
 
 **Session in agent.js:** `getGoogleSession(req)` called alongside `fmpToken(db)` at the top of the handler. Google tokens are passed in `ctx.googleToken` and `ctx.googleUser`. The system prompt includes the user's name and email.
