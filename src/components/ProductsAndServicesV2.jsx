@@ -448,12 +448,15 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
 
   // Pricing roll-up (reflects pending edits)
   const cost = Number(fval('Cost')) || 0;
-  const price = Number(fval('Unit_Price')) || 0;
+  const bom = portalData?.['Portal__Bill_of_Materials 4'] || [];
+  const bomTotal = bom.reduce((a, r) => a + Number(r['item_ITMLI__billOfMaterials::Total'] || 0), 0);
+  // Assembly products are priced from their bill of materials (sum of component
+  // line totals); everything else uses the unit price.
+  const isAssembly = !!fval('assembly_product');
+  const price = isAssembly ? bomTotal : (Number(fval('Unit_Price')) || 0);
   const profit = price - cost;
   const marginPct = price > 0 && cost > 0 ? (profit / price) * 100 : null;
   const marginColor = marginPct == null ? '#64748b' : marginPct < 0 ? '#ef4444' : marginPct < 15 ? '#f59e0b' : '#22c55e';
-  const bom = portalData?.['Portal__Bill_of_Materials 4'] || [];
-  const bomTotal = bom.reduce((a, r) => a + Number(r['item_ITMLI__billOfMaterials::Total'] || 0), 0);
   const channels = [
     { key: 'shopify', label: 'Shopify', id: f._kat__Item_ID_Shopify },
     { key: 'qbo', label: 'QuickBooks', id: f._kat__Item_ID_QuickBooks },
@@ -592,7 +595,7 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
                     {f.Vendor && <span className="v2-sku"><span className="dim">Vendor</span> {f.Vendor}</span>}
                   </div>
                   <div className="v2-kpis">
-                    <div className="v2-kpi"><div className="v2-kpi-label">Price</div><div className="v2-kpi-num">${price.toFixed(2)}</div></div>
+                    <div className="v2-kpi"><div className="v2-kpi-label">Price{isAssembly ? ' · BOM' : ''}</div><div className="v2-kpi-num">${price.toFixed(2)}</div></div>
                     <div className="v2-kpi"><div className="v2-kpi-label">Cost</div><div className="v2-kpi-num">{cost ? `$${cost.toFixed(2)}` : '—'}</div></div>
                     <div className="v2-kpi"><div className="v2-kpi-label">Margin</div><div className="v2-kpi-num" style={{ color: marginColor }}>{marginPct == null ? '—' : `${marginPct.toFixed(1)}%`}</div></div>
                     <div className="v2-kpi"><div className="v2-kpi-label">Profit / unit</div><div className="v2-kpi-num" style={{ color: marginPct != null && profit < 0 ? '#ef4444' : undefined }}>{cost ? `$${profit.toFixed(2)}` : '—'}</div></div>
