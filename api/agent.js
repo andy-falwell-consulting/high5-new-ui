@@ -12,6 +12,9 @@ const FMP_BASIC = 'Basic ' + Buffer.from('admin:itstime').toString('base64');
 const ALLOWED_DBS = ['High5_Core4_Dev', 'High5_Core4_Stage', 'High5_Core4'];
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOOL_TURNS = 12;
+// Output cap per turn. Generous so long answers (e.g. a 50-row invoice table +
+// summary) don't get cut off mid-sentence; 2000 was truncating list results.
+const MAX_OUTPUT_TOKENS = 8192;
 
 // ── FileMaker modules ────────────────────────────────────────────────────────
 const MODULES = {
@@ -541,7 +544,7 @@ export default async function handler(req, res) {
     const addSource = s => { const k = `${s.module}:${s.recordId}`; if (!seen.has(k) && sources.length < 12) { seen.add(k); sources.push(s); } };
 
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-      const stream = anthropic.messages.stream({ model: MODEL, max_tokens: 2000, system: buildSystem(ctx.googleUser), tools: TOOLS, messages: convo });
+      const stream = anthropic.messages.stream({ model: MODEL, max_tokens: MAX_OUTPUT_TOKENS, system: buildSystem(ctx.googleUser), tools: TOOLS, messages: convo });
       stream.on('text', delta => send({ type: 'delta', text: delta }));
       const msg = await stream.finalMessage();
 
