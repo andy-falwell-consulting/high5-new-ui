@@ -460,14 +460,13 @@ export default function Contacts({ navTarget, onClearNav, onNavigateTo, onRecord
               <div className="ct-metric"><div className="ct-metric-v">{metrics.ccs}</div><div className="ct-metric-l">CCS projects</div></div>
               <div className="ct-metric"><div className="ct-metric-v">{metrics.invoices}</div><div className="ct-metric-l">Invoices</div></div>
               <div className="ct-metric"><div className="ct-metric-v" style={{ color: metrics.openBalance > 0 ? '#e8322a' : undefined }}>{money(metrics.openBalance)}</div><div className="ct-metric-l">Open balance</div></div>
-              <div className="ct-metric"><div className="ct-metric-v">{metrics.estimates}</div><div className="ct-metric-l">Estimates</div></div>
             </div>
 
 
             {/* ── Body: rail + tabs ── */}
             <div className="ct-body">
               <div className="ct-rail">
-                <div className="ct-card">
+                <div className="ct-card ct-card-fields">
                   <div className="ct-card-title">About</div>
                   {ABOUT_FIELDS.map(fk => (
                     <div className="ct-kv" key={fk}>
