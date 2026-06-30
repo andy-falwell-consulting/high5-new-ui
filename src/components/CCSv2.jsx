@@ -57,6 +57,18 @@ const PHASES = [
   ]},
 ];
 
+// Contract & financials block — mirrors the RCD_New "Additional Info" form.
+// `sent` is a date/text field; `rcv` is the "Received" checkbox (optional).
+// `ref: true` rows are read-only QBO identifiers.
+const FIN_ROWS = [
+  { label: 'Estimate #',        sent: '_kat__QuickBooks_Estimate_ID', type: 'text', ref: true },
+  { label: 'Contract Sent',     sent: 'Contract_Date_Sent',           type: 'date', rcv: 'cd_Received Contract' },
+  { label: 'Deposit Inv. Sent', sent: 'Report Date Sent',             type: 'date', rcv: 'cd_Received Deposit' },
+  { label: 'PO #',              sent: 'po_number',                    type: 'text', rcv: 'cd_Received PO' },
+  { label: 'Final Inv. Sent',   sent: 'Final Sent',                   type: 'date', rcv: 'Final_Invoice_Received' },
+  { label: 'Invoice #',         sent: '_kat__QuickBooks_Invoice_ID(1)', type: 'text', ref: true },
+];
+
 // Prominent one-click actions → checklist field they satisfy.
 const QUICK_ACTIONS = [
   { key: 'cd_Sent Contract',      label: 'Sent contract',   icon: '✉' },
@@ -404,6 +416,28 @@ export default function CCSv2({ navTarget, onNavigateTo, onClearNav, onRecordSel
               {/* BODY: phases + rail */}
               <div className="cv2-body">
                 <div className="cv2-col-main">
+                  <div className="cv2-card">
+                    <div className="cv2-card-head"><span>Contract &amp; financials</span></div>
+                    <div className="cv2-fin-grid">
+                      {FIN_ROWS.map(row => (
+                        <div className="cv2-fin-line" key={row.label}>
+                          <span className="cv2-fin-label">{row.label}</span>
+                          <div className="cv2-fin-input">
+                            {row.ref
+                              ? <span className="cv2-fin-ref">{val(row.sent) || '—'}</span>
+                              : row.type === 'date'
+                                ? <InlineDate value={val(row.sent)} onChange={v => stage(row.sent, v)} />
+                                : <InlineText value={val(row.sent)} onChange={v => stage(row.sent, v)} placeholder="—" />}
+                          </div>
+                          {row.rcv
+                            ? <button className={`cv2-fin-rcv${isOn(val(row.rcv)) ? ' on' : ''}`} onClick={() => toggle(row.rcv)}>
+                                <span className="cv2-fin-rcv-box">{isOn(val(row.rcv)) ? '✓' : ''}</span>Received
+                              </button>
+                            : <span className="cv2-fin-rcv-spacer" />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div className="cv2-card">
                     <div className="cv2-card-head"><span>Project phases</span><span className="cv2-card-hint">click to expand · check to update</span></div>
                     <div className="cv2-phases">
