@@ -129,7 +129,7 @@ export default function App() {
       { id: 'rmi',         layout: 'RMI_New',                 opts: { cacheVersion: 1, batchSize: 100 } },
       { id: 'trainings',   layout: 'trainings_New',           opts: { cacheVersion: 1, batchSize: 100 } },
       { id: 'oe-lookup',   layout: 'OELookup_New',            opts: { cacheVersion: 1, batchSize: 100 } },
-      { id: 'products',    layout: 'Products & Services_New', opts: { cacheVersion: 4, batchSize: 100 } },
+      { id: 'products',    layout: 'Products & Services_New', opts: { cacheVersion: 5, batchSize: 100 } },
     ]
     const PREWARM_CONCURRENCY = 2
     const landing = parseHash().moduleId
