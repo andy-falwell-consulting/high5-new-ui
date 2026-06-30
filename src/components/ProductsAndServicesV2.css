@@ -784,9 +784,25 @@
   display: flex; gap: 20px; align-items: flex-start;
   background: #13151c; border: 1px solid #1e2130; border-radius: 14px; padding: 18px 20px;
 }
-.v2-hero-media { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+.v2-hero-media { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; position: relative; }
 .v2-hero-img2 { width: 140px; height: 140px; object-fit: contain; border-radius: 10px; border: 1px solid #1e2130; background: #0f1117; }
 .v2-hero-ph { width: 140px; height: 140px; border-radius: 10px; border: 1px solid #1e2130; background: #0f1117; display: flex; align-items: center; justify-content: center; font-size: 53px; opacity: 0.55; }
+
+/* Upload status badge overlaid on the top-left of the 140px image. */
+.v2-img-status {
+  position: absolute; top: 6px; left: 6px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; line-height: 1;
+  background: rgba(15, 17, 23, 0.82); color: #e2e8f0;
+  pointer-events: none;
+}
+.v2-img-status.saved { background: rgba(16, 122, 78, 0.92); color: #d1fae5; }
+.v2-img-spinner {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid rgba(226, 232, 240, 0.35); border-top-color: #e2e8f0;
+  animation: spin 0.7s linear infinite;
+}
 .v2-hero-info { flex: 1; min-width: 0; }
 
 .v2-sku { font-size: 14px; color: #cbd5e1; }
