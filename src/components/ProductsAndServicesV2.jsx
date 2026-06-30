@@ -634,12 +634,10 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
                       <FieldValue fieldKey="Notes" value={fval('Notes')} onChange={handleFieldChange} dataEditing={dataEditing} />
                     </div>
                   )}
-                  {(fval('shopify_description') || dataEditing) && (
-                    <div className="v2-spec-card">
-                      <div className="v2-spec-head">Shopify description</div>
-                      <FieldValue fieldKey="shopify_description" value={fval('shopify_description')} onChange={handleFieldChange} dataEditing={dataEditing} />
-                    </div>
-                  )}
+                  <div className="v2-spec-card">
+                    <div className="v2-spec-head">Shopify description</div>
+                    <FieldValue fieldKey="shopify_description" value={fval('shopify_description')} onChange={handleFieldChange} dataEditing={dataEditing} />
+                  </div>
                   <div className="v2-spec-card">
                     <div className="v2-spec-head v2-spec-head-row">
                       <span>Bill of materials{bom.length > 0 && ` · ${bom.length}`}</span>
