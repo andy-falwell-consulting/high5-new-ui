@@ -43,7 +43,13 @@ async function shopGql(store, token, query, variables) {
   return j.data;
 }
 
-const toGid = raw => String(raw).startsWith('gid://') ? String(raw) : `gid://shopify/Product/${raw}`;
+// Normalize to a valid product GID, or null for junk values (some rows hold
+// stray text like "not found" — one bad id rejects the whole nodes() query).
+const toGid = raw => {
+  const s = String(raw == null ? '' : raw).trim();
+  const m = s.match(/^gid:\/\/shopify\/Product\/(\d+)$/) || s.match(/^(\d+)$/);
+  return m ? `gid://shopify/Product/${m[1]}` : null;
+};
 
 // One page of products that have a Shopify id. Stable set (we only write a
 // non-key field), so offset paging is safe.
@@ -75,31 +81,33 @@ export default async function handler(req, res) {
   const started = Date.now();
   const ftoken = await fmpToken(db);
 
-  let processed = 0, updated = 0, missing = 0, errors = 0, total = null;
+  let processed = 0, updated = 0, missing = 0, invalid = 0, errors = 0, total = null;
   try {
     while (Date.now() - started < 260000) {
       const { rows, total: tot } = await findLinkedPage(db, ftoken, cursor);
       if (total == null) total = tot;
       if (!rows.length) { cursor = null; break; }
 
-      // map normalized gid -> record (skip blanks)
-      const byGid = new Map();
+      // keep every valid row (multiple FMP products can share one Shopify gid);
+      // dedupe gids only for the Shopify query.
+      const recs = [];
+      const gidSet = new Set();
       for (const r of rows) {
-        const raw = r.fieldData?._kat__Item_ID_Shopify;
-        if (raw) byGid.set(toGid(raw), r);
+        const gid = toGid(r.fieldData?._kat__Item_ID_Shopify);
+        if (!gid) { invalid++; continue; }
+        r._gid = gid; recs.push(r); gidSet.add(gid);
       }
-      const gids = [...byGid.keys()];
       let descById = new Map();
-      if (gids.length) {
+      if (gidSet.size) {
         const data = await shopGql(store, stoken,
-          `query($ids:[ID!]!){ nodes(ids:$ids){ ... on Product { id descriptionHtml } } }`, { ids: gids });
+          `query($ids:[ID!]!){ nodes(ids:$ids){ ... on Product { id descriptionHtml } } }`, { ids: [...gidSet] });
         descById = new Map((data?.nodes || []).filter(Boolean).map(n => [n.id, n.descriptionHtml || '']));
       }
 
-      for (const [gid, rec] of byGid) {
+      for (const rec of recs) {
         processed++;
-        if (!descById.has(gid)) { missing++; continue; } // product not in Shopify
-        const desc = descById.get(gid);
+        if (!descById.has(rec._gid)) { missing++; continue; } // product not in Shopify
+        const desc = descById.get(rec._gid);
         if ((rec.fieldData?.shopify_description || '') === desc) continue; // no change
         try { await fmUpdate(db, LAYOUT, rec.recordId, { shopify_description: desc }, ftoken); updated++; }
         catch { errors++; }
@@ -109,9 +117,9 @@ export default async function handler(req, res) {
       if (rows.length < PAGE) { cursor = null; break; } // last page
     }
   } catch (e) {
-    return res.status(502).json({ error: String(e?.message || e), processed, updated, missing, errors, cursor, total });
+    return res.status(502).json({ error: String(e?.message || e), processed, updated, missing, invalid, errors, cursor, total });
   }
 
   const done = cursor == null;
-  return res.status(200).json({ done, processed, updated, missing, errors, cursor: done ? null : cursor, total });
+  return res.status(200).json({ done, processed, updated, missing, invalid, errors, cursor: done ? null : cursor, total });
 }
