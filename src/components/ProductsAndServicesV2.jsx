@@ -150,7 +150,7 @@ const AUTO_SYNC_FIELDS = new Set(['Name', 'Unit_Price', 'Description', 'SKU', 'Q
 
 export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordSelect } = {}) {
   const { records, total, loading, error } = useAllRecords(LAYOUT, {
-    cacheVersion: 4,
+    cacheVersion: 5,
     slimForStorage: r => ({
       recordId: r.recordId,
       fieldData: {
