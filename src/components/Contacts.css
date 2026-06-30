@@ -527,13 +527,14 @@
 .ct-hero-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 /* Metrics */
-.ct-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.ct-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+@media (max-width: 720px) { .ct-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ct-metric { background: #13151c; border: 1px solid #1e2130; border-radius: 10px; padding: 11px 14px; }
 .ct-metric-v { font-size: 24px; font-weight: 600; color: #f1f5f9; }
 .ct-metric-l { font-size: 13px; color: #8b97aa; margin-top: 2px; }
 
 /* Body grid */
-.ct-body { display: grid; grid-template-columns: 244px minmax(0, 1fr); gap: 14px; align-items: start; }
+.ct-body { display: grid; grid-template-columns: 288px minmax(0, 1fr); gap: 14px; align-items: start; }
 
 /* Rail cards */
 .ct-rail { display: flex; flex-direction: column; gap: 12px; }
@@ -552,6 +553,12 @@
 .ct-kv-v.link { color: #60a5fa; text-decoration: none; }
 .ct-kv-v.link:hover { text-decoration: underline; }
 .ct-kv-v .ct-input, .ct-kv-v .ct-textarea { text-align: left; }
+
+/* About card: stack label above a full-width input so names (and every field)
+   are fully editable and viewable instead of squeezed into a narrow right column. */
+.ct-card-fields .ct-kv { flex-direction: column; align-items: stretch; gap: 4px; padding: 7px 0; }
+.ct-card-fields .ct-kv-k { font-size: 13px; }
+.ct-card-fields .ct-kv-v { text-align: left; }
 
 .ct-alert {
   display: flex; gap: 9px; font-size: 14px; color: #fbbf24;
