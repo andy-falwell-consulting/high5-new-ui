@@ -72,10 +72,14 @@ async function createProduct(store, token, { title, descriptionHtml, status, pri
 }
 
 async function updateProduct(store, token, { productId, variantId, title, descriptionHtml, price, sku }) {
+  // Only set descriptionHtml when the caller provided one — omitting it leaves
+  // Shopify's existing description untouched (so an empty Belay field can't blank it).
+  const input = { id: productId, title };
+  if (descriptionHtml != null) input.descriptionHtml = descriptionHtml;
   const data = await gql(store, token, `
     mutation Update($input: ProductInput!) {
       productUpdate(input: $input) { product { id } userErrors { field message } }
-    }`, { input: { id: productId, title, descriptionHtml: descriptionHtml || '' } });
+    }`, { input });
   throwOnUserErrors(data.productUpdate, 'product update');
   // Prefer the live SKU match; fall back to the stored variant id.
   const vId = (await resolveVariantIdBySku(store, token, productId, sku)) || variantId;

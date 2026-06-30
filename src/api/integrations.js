@@ -19,12 +19,16 @@ const QBO_INCOME_NAMES = {
 // GraphQL GIDs (gid://shopify/Product/…) — the format already stored in FMP.
 // Returns { shopifyId, variantId } (both GIDs) on success.
 export async function pushToShopify(f, recordId, existingShopifyId = null) {
+  const shopDesc = String(f.shopify_description || '').trim();
   const body = {
     action: existingShopifyId ? 'update' : 'create',
     title: f.Name,
-    descriptionHtml: f.Description || '',
     price: String(f.Unit_Price || 0),
     sku: f.SKU || '',
+    // Shopify's description comes from Belay's Shopify Description field. Only
+    // send it when it has content — an empty field must NOT overwrite/blank the
+    // description that already lives in Shopify.
+    ...(shopDesc ? { descriptionHtml: shopDesc } : {}),
   };
   if (existingShopifyId) {
     body.productId = existingShopifyId;                 // GID
