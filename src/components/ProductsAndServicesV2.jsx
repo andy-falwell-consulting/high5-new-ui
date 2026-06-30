@@ -7,39 +7,10 @@ import NewItemModal from './NewItemModal';
 import ImageLightbox from './ImageLightbox';
 import { pushToShopify, pushToQBO } from '../api/integrations';
 import { useAllRecords } from '../hooks/useAllRecords';
+import { CATEGORIES, TYPES, VENDORS, QBO_INCOME, QBO_CLASS } from '../config/productOptions';
 import './ProductsAndServicesV2.css';
 
 const LAYOUT = 'Products & Services_New';
-
-const CATEGORIES = ['Catalog','Hardware','Typical Component','Tool','Labor','Lumber','Low Element','High Element','Repair','Training'];
-const TYPES = ['Product','Service'];
-const VENDORS = ['AtHeight','Atomik Climbing','Edelrid','High 5','Liberty Mountain','Lavalley Building Supply, Perkins','Peak','Petzl','S&S','Sticker Mule'];
-const QBO_INCOME = [
-  { label: '4010 - Open Enrollment', value: '151' },
-  { label: '4020 - Custom training', value: '177' },
-  { label: '4021 - Adult Custom Direct Service', value: '112' },
-  { label: '4022 - Corporate Programs', value: '116' },
-  { label: '4023 - College Programs', value: '117' },
-  { label: '4024 - Youth Programs', value: '118' },
-  { label: '4050 - Program Review', value: '137' },
-  { label: '4065 - Planning - Custom', value: '329' },
-  { label: '4200 - Challenge Course Services', value: '236' },
-  { label: '4210 - Low or High Elements (new installations)', value: '244' },
-  { label: '4230 - Inspection Services', value: '303' },
-  { label: '4240 - Repairs', value: '268' },
-  { label: '4410 - Store / Catalog Sales', value: '155' },
-  { label: '4430 - Manuals and Miscellaneous Items', value: '156' },
-];
-const QBO_CAT = [
-  { label: 'CAT', value: '1300000000000836523' },
-  { label: 'CCS', value: '1300000000000836514' },
-  { label: 'DEV', value: '1300000000000836526' },
-  { label: 'EOL', value: '1300000000000836525' },
-  { label: 'EP',  value: '1300000000000836530' },
-  { label: 'OE',  value: '1300000000000836522' },
-  { label: 'OV',  value: '1300000000000836516' },
-  { label: 'T&TD',value: '1300000000000836520' },
-];
 
 const FIELD_LABELS = {
   SKU: 'SKU', vendor_sku: 'Vendor SKU', Vendor: 'Vendor', Type: 'Type',
@@ -140,7 +111,7 @@ function FieldValue({ fieldKey, value, onChange, dataEditing }) {
   if (fieldKey === 'Type') return selectOpts(TYPES.map(x => <option key={x} value={x}>{x}</option>), false);
   if (fieldKey === 'Category') return selectOpts(CATEGORIES.map(x => <option key={x} value={x}>{x}</option>), true);
   if (fieldKey === 'QuickBooks_Account_Income') return selectOpts(QBO_INCOME.map(x => <option key={x.value} value={x.value}>{x.label}</option>), true);
-  if (fieldKey === 'qbo_class') return selectOpts(QBO_CAT.map(x => <option key={x.value} value={x.value}>{x.label}</option>), true);
+  if (fieldKey === 'qbo_class') return selectOpts(QBO_CLASS.map(x => <option key={x.value} value={x.value}>{x.label}</option>), true);
 
   if (ro) return <span className="sl-value">{value || '—'}</span>;
   return <input type="text" value={value || ''} onChange={e => ch(e.target.value)} className="sl-input" />;
@@ -320,7 +291,7 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
     }
   };
 
-  const handleCreate = async ({ fields, pushShopify, shopifyStatus, pushQBO, qboIncome }) => {
+  const handleCreate = async ({ fields, pushShopify, shopifyStatus, pushQBO }) => {
     // SKUs are always assigned by the app from the Tray counter (single source
     // of truth) — users can't choose one. FMP-direct adds use the same counter
     // via the FMP script trigger.
@@ -335,7 +306,8 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
       updates._kat__Item_Variant_Id = variantId;
     }
     if (pushQBO) {
-      const { qboId } = await pushToQBO(fields, null, qboIncome);
+      // Use the product's own income account field (falls back to Store/Catalog).
+      const { qboId } = await pushToQBO(fields, null, fields.QuickBooks_Account_Income || '155');
       if (qboId) updates._kat__Item_ID_QuickBooks = qboId;
     }
     if (Object.keys(updates).length) await updateRecord(LAYOUT, newRecordId, updates);

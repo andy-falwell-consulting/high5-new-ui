@@ -1,35 +1,16 @@
 import { useState } from 'react';
+import { CATEGORIES, TYPES, VENDORS, QBO_INCOME, QBO_CLASS } from '../config/productOptions';
 import './NewItemModal.css';
-
-const CATEGORIES = ['Catalog','Hardware','Typical Component','Tool','Labor','Lumber','Low Element','High Element','Repair','Training'];
-const TYPES = ['Product','Service'];
-const VENDORS = ['AtHeight','Atomik Climbing','Edelrid','High 5','Liberty Mountain','Lavalley Building Supply, Perkins','Peak','Petzl','S&S','Sticker Mule'];
-const QBO_INCOME = [
-  { label: '4010 - Open Enrollment', value: '151' },
-  { label: '4020 - Custom training', value: '177' },
-  { label: '4021 - Adult Custom Direct Service', value: '112' },
-  { label: '4022 - Corporate Programs', value: '116' },
-  { label: '4023 - College Programs', value: '117' },
-  { label: '4024 - Youth Programs', value: '118' },
-  { label: '4050 - Program Review', value: '137' },
-  { label: '4065 - Planning - Custom', value: '329' },
-  { label: '4200 - Challenge Course Services', value: '236' },
-  { label: '4210 - Low or High Elements', value: '244' },
-  { label: '4230 - Inspection Services', value: '303' },
-  { label: '4240 - Repairs', value: '268' },
-  { label: '4410 - Store / Catalog Sales', value: '155' },
-  { label: '4430 - Manuals and Misc', value: '156' },
-];
 
 export default function NewItemModal({ onClose, onCreate }) {
   const [fields, setFields] = useState({
-    Name: '', Type: 'Product', Category: 'Hardware',
-    Vendor: '', Cost: '', Unit_Price: '', Description: '',
+    Name: '', Type: 'Product', Category: 'Hardware', Vendor: '', vendor_sku: '',
+    QuickBooks_Account_Income: '', qbo_class: '',
+    Cost: '', Unit_Price: '', Description: '', shopify_description: '',
   });
   const [pushShopify, setPushShopify] = useState(false);
   const [shopifyStatus, setShopifyStatus] = useState('draft');
   const [pushQBO, setPushQBO] = useState(false);
-  const [qboIncome, setQboIncome] = useState('155');
   const [status, setStatus] = useState(null); // null | 'saving' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -39,7 +20,7 @@ export default function NewItemModal({ onClose, onCreate }) {
     if (!fields.Name.trim()) { setErrorMsg('Name is required.'); setStatus('error'); return; }
     setStatus('saving'); setErrorMsg('');
     try {
-      await onCreate({ fields, pushShopify, shopifyStatus, pushQBO, qboIncome });
+      await onCreate({ fields, pushShopify, shopifyStatus, pushQBO });
       onClose();
     } catch (e) {
       setErrorMsg(e.message || 'Something went wrong.');
@@ -82,15 +63,33 @@ export default function NewItemModal({ onClose, onCreate }) {
                   {VENDORS.map(v => <option key={v}>{v}</option>)}
                 </select>
               </label>
+              <label>Vendor SKU
+                <input value={fields.vendor_sku} onChange={e => set('vendor_sku', e.target.value)} placeholder="Vendor's part #" />
+              </label>
               <label>Cost ($)
                 <input type="number" value={fields.Cost} onChange={e => set('Cost', e.target.value)} placeholder="0.00" step="0.01" />
               </label>
               <label>Unit Price ($)
                 <input type="number" value={fields.Unit_Price} onChange={e => set('Unit_Price', e.target.value)} placeholder="0.00" step="0.01" />
               </label>
+              <label>QBO Income Account
+                <select value={fields.QuickBooks_Account_Income} onChange={e => set('QuickBooks_Account_Income', e.target.value)}>
+                  <option value="">—</option>
+                  {QBO_INCOME.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                </select>
+              </label>
+              <label>QBO Class
+                <select value={fields.qbo_class} onChange={e => set('qbo_class', e.target.value)}>
+                  <option value="">—</option>
+                  {QBO_CLASS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </label>
             </div>
             <label className="nim-wide">Description
               <textarea value={fields.Description} onChange={e => set('Description', e.target.value)} rows={3} placeholder="Product description…" />
+            </label>
+            <label className="nim-wide">Shopify Description
+              <textarea value={fields.shopify_description} onChange={e => set('shopify_description', e.target.value)} rows={3} placeholder="Storefront description (Shopify)…" />
             </label>
           </section>
 
@@ -119,13 +118,7 @@ export default function NewItemModal({ onClose, onCreate }) {
               <span>Also create in <strong>QuickBooks</strong></span>
             </label>
             {pushQBO && (
-              <div className="nim-grid nim-sub">
-                <label>Income Account
-                  <select value={qboIncome} onChange={e => setQboIncome(e.target.value)}>
-                    {QBO_INCOME.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-                  </select>
-                </label>
-              </div>
+              <p className="nim-hint">Uses the <strong>QBO Income Account</strong> selected above (defaults to Store / Catalog Sales if blank).</p>
             )}
           </section>
         </div>
