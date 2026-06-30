@@ -28,7 +28,7 @@ export const REPLICATED = {
   rmi:         { layout: 'RMI_New',                 modField: 'zz__Modified_On' },
   projects:    { layout: 'RCD_New',                 modField: 'zz__Modified_On' },
   oelookup:    { layout: 'OELookup_New',            snapshot: true, refreshMs: 6 * 3600 * 1000 },
-  products:    { layout: 'Products & Services_New', snapshot: true, refreshMs: 6 * 3600 * 1000 },
+  products:    { layout: 'Products & Services_New', modField: 'zz__Modified_On' },
 };
 
 const rk = (db, layout, suffix) => `repl:${db}:${layout}:${suffix}`;
