@@ -166,8 +166,21 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
   const [showLightbox, setShowLightbox] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imgBust, setImgBust] = useState(null);
+  const [localPreview, setLocalPreview] = useState(null); // optimistic blob: URL while the upload is in flight
+  const [imgStatus, setImgStatus] = useState(null);        // null | 'uploading' | 'saved'
   const imgInputRef = useRef(null);
+  const previewRef = useRef(null);
   const isResizing = useRef(false);
+
+  // Set/replace the optimistic preview, revoking the previous blob URL.
+  const setPreview = useCallback((url) => {
+    if (previewRef.current && previewRef.current !== url) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = url;
+    setLocalPreview(url);
+  }, []);
+
+  // Switching products clears any stale optimistic preview/status.
+  useEffect(() => { setPreview(null); setImgStatus(null); }, [selected?.recordId, setPreview]);
 
   const startResize = useCallback((e) => {
     e.preventDefault();
@@ -320,6 +333,10 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
     const file = e.target.files?.[0];
     if (!file || !selected) return;
     e.target.value = '';
+    // Show the picked file immediately — the FileMaker container write is slow,
+    // so the optimistic preview makes it feel instant while the upload runs.
+    setPreview(URL.createObjectURL(file));
+    setImgStatus('uploading');
     setUploadingImage(true);
     try {
       const env = getCurrentEnv();
@@ -333,7 +350,12 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
       const fresh = await getRecord(LAYOUT, selected.recordId);
       const updated = fresh.response?.data?.[0];
       if (updated) setSelected(updated);
+      // Keep showing the local preview (identical bytes, no flash); just confirm.
+      setImgStatus('saved');
+      setTimeout(() => setImgStatus(s => (s === 'saved' ? null : s)), 2500);
     } catch (err) {
+      setPreview(null);       // revert the optimistic preview on failure
+      setImgStatus(null);
       alert(`Image upload failed: ${err.message}`);
     } finally { setUploadingImage(false); }
   };
@@ -416,7 +438,8 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
   const catColor = CATEGORY_COLORS[f.Category] || '#64748b';
   const dirtyCount = Object.keys(edits).length + bomOps.length;
   const imgSrcBase = f.Picture ? containerImageUrl(f.Picture, { db: getCurrentEnv().db, layout: LAYOUT, recordId: selected?.recordId }) : null;
-  const imgSrc = imgSrcBase ? (imgBust ? `${imgSrcBase}&t=${imgBust}` : imgSrcBase) : null;
+  const serverImgSrc = imgSrcBase ? (imgBust ? `${imgSrcBase}&t=${imgBust}` : imgSrcBase) : null;
+  const imgSrc = localPreview || serverImgSrc; // optimistic preview wins while uploading
 
   // Live (edit-aware) field accessors + an inline-editable field helper
   const fval = fk => (fk in edits ? edits[fk] : f[fk]);
@@ -580,9 +603,14 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
                   ) : (
                     <div className="v2-hero-ph"><span style={{ color: catColor }}>◫</span></div>
                   )}
+                  {imgStatus && (
+                    <div className={`v2-img-status ${imgStatus}`}>
+                      {imgStatus === 'uploading' ? <><span className="v2-img-spinner" />Uploading…</> : '✓ Saved'}
+                    </div>
+                  )}
                   {dataEditing && (
                     <button className="v2-img-replace-btn" onClick={() => imgInputRef.current?.click()} disabled={uploadingImage}>
-                      {uploadingImage ? '…' : imgSrc ? '⟳ Replace' : '+ Add image'}
+                      {uploadingImage ? 'Uploading…' : imgSrc ? '⟳ Replace' : '+ Add image'}
                     </button>
                   )}
                   <input ref={imgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
