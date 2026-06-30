@@ -118,6 +118,14 @@
 
 .nim-wide textarea { resize: vertical; min-height: 72px; }
 
+.nim-grid input.nim-readonly {
+  color: #8a93a8;
+  font-style: italic;
+  cursor: default;
+  background: #171a26;
+}
+[data-theme="light"] .nim-grid input.nim-readonly { color: #94a3b8; background: #f1f5f9; }
+
 .nim-toggle {
   display: flex;
   align-items: center;
