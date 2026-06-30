@@ -177,7 +177,6 @@ export default function NavRail({ modules, activeId, onSelect, theme, onToggleTh
           {showLabels && (
             <div style={{ lineHeight: 1.2, minWidth: 0 }}>
               <div style={{ fontSize: 17, fontWeight: 600, color: c.textActive }}>Belay</div>
-              <div style={{ fontSize: 14, color: c.sub }}>High 5 Ops</div>
             </div>
           )}
           {showLabels && (
