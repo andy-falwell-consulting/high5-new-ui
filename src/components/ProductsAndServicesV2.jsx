@@ -148,6 +148,18 @@ function FieldValue({ fieldKey, value, onChange, dataEditing }) {
 
 const AUTO_SYNC_FIELDS = new Set(['Name', 'Unit_Price', 'Description', 'SKU', 'QuickBooks_Account_Income']);
 
+// Draw the next SKU from the Tray workflow that owns the incrementing counter
+// (single source of truth — same counter the FMP script trigger uses). Belay
+// creates products via the Data API, which doesn't fire FMP triggers, so we
+// fetch the SKU explicitly. SKUs are text — never coerce to a number. Throws on
+// failure so the caller blocks the save rather than create a SKU-less product.
+async function fetchNextSku() {
+  const res = await fetch('/api/next-sku', { method: 'POST', credentials: 'include' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.sku) throw new Error(data.error || `Couldn't assign a SKU (HTTP ${res.status}). Product not created.`);
+  return String(data.sku);
+}
+
 export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordSelect } = {}) {
   const { records, total, loading, error } = useAllRecords(LAYOUT, {
     cacheVersion: 5,
@@ -309,6 +321,10 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
   };
 
   const handleCreate = async ({ fields, pushShopify, shopifyStatus, pushQBO, qboIncome }) => {
+    // SKUs are always assigned by the app from the Tray counter (single source
+    // of truth) — users can't choose one. FMP-direct adds use the same counter
+    // via the FMP script trigger.
+    fields = { ...fields, SKU: await fetchNextSku() };
     const res = await createRecord(LAYOUT, fields);
     if (res.messages?.[0]?.code !== '0') throw new Error(res.messages?.[0]?.message || 'FMP create failed');
     const newRecordId = res.response?.recordId;

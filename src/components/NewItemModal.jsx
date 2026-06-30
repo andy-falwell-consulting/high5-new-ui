@@ -23,7 +23,7 @@ const QBO_INCOME = [
 
 export default function NewItemModal({ onClose, onCreate }) {
   const [fields, setFields] = useState({
-    Name: '', SKU: '', Type: 'Product', Category: 'Hardware',
+    Name: '', Type: 'Product', Category: 'Hardware',
     Vendor: '', Cost: '', Unit_Price: '', Description: '',
   });
   const [pushShopify, setPushShopify] = useState(false);
@@ -64,7 +64,7 @@ export default function NewItemModal({ onClose, onCreate }) {
                 <input value={fields.Name} onChange={e => set('Name', e.target.value)} placeholder="Product name" />
               </label>
               <label>SKU
-                <input value={fields.SKU} onChange={e => set('SKU', e.target.value)} placeholder="SKU-001" />
+                <input value="Assigned automatically on save" readOnly disabled className="nim-readonly" />
               </label>
               <label>Type
                 <select value={fields.Type} onChange={e => set('Type', e.target.value)}>
