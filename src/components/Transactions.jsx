@@ -182,7 +182,10 @@ export default function Transactions({ onRecordSelect } = {}) {
                   {TYPE_META[d.type]?.label || d.type}
                 </span>
                 <h1>#{d.docNumber || '—'}</h1>
-                <div className="txn-detail-cust">{d.customerName || '—'}</div>
+                <div className="txn-detail-sub">
+                  <span className="txn-detail-cust">{d.customerName || '—'}</span>
+                  <span className="txn-detail-qbo">QBO ID {d.id}</span>
+                </div>
               </div>
               <div className="txn-detail-actions">
                 <button className="txn-pdf-btn" onClick={() => viewPdf(d)} disabled={pdfBusy}>{pdfBusy ? 'Loading…' : '↧ PDF'}</button>
