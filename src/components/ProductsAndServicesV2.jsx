@@ -6,6 +6,7 @@ import BomPickerModal from './BomPickerModal';
 import NewItemModal from './NewItemModal';
 import ImageLightbox from './ImageLightbox';
 import { pushToShopify, pushToQBO } from '../api/integrations';
+import RichTextEditor, { sanitizeHtml } from './RichTextEditor';
 import { useAllRecords } from '../hooks/useAllRecords';
 import { CATEGORIES, TYPES, VENDORS, QBO_INCOME, QBO_CLASS } from '../config/productOptions';
 import './ProductsAndServicesV2.css';
@@ -685,7 +686,16 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
                   )}
                   <div className="v2-spec-card">
                     <div className="v2-spec-head">Shopify description</div>
-                    <FieldValue fieldKey="shopify_description" value={fval('shopify_description')} onChange={handleFieldChange} dataEditing={dataEditing} />
+                    {dataEditing ? (
+                      <RichTextEditor
+                        key={selected.recordId}
+                        value={fval('shopify_description')}
+                        onChange={v => handleFieldChange('shopify_description', v)}
+                        placeholder="Write the storefront description — formatting matches how it appears in Shopify."
+                      />
+                    ) : (
+                      <div className="v2-shopdesc" dangerouslySetInnerHTML={{ __html: sanitizeHtml(fval('shopify_description')) }} />
+                    )}
                   </div>
                   <div className="v2-spec-card">
                     <div className="v2-spec-head v2-spec-head-row">
