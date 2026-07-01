@@ -289,9 +289,12 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
     const f = { ...selected.fieldData, ...edits };
     setSyncStatus(s => ({ ...s, [target]: 'pushing' }));
     try {
+      // Push the effective price (`price` = live BOM total for assemblies, unless
+      // price-override), not the possibly-stale stored Unit_Price.
+      const fPush = { ...f, Unit_Price: price };
       if (target === 'shopify') {
         const existing = f._kat__Item_ID_Shopify || null;
-        const { shopifyId, variantId } = await pushToShopify(f, selected.recordId, existing);
+        const { shopifyId, variantId } = await pushToShopify(fPush, selected.recordId, existing);
         const fmpUpdates = {};
         if (!existing) fmpUpdates._kat__Item_ID_Shopify = shopifyId;
         if (variantId && variantId !== f._kat__Item_Variant_Id) fmpUpdates._kat__Item_Variant_Id = variantId;
@@ -302,7 +305,7 @@ export default function ProductsAndServicesV2({ navTarget, onClearNav, onRecordS
       } else if (target === 'qbo') {
         const existing = f._kat__Item_ID_QuickBooks || null;
         const incomeAccount = f.QuickBooks_Account_Income || '155';
-        const { qboId } = await pushToQBO(f, existing, incomeAccount);
+        const { qboId } = await pushToQBO(fPush, existing, incomeAccount);
         if (!existing && qboId) {
           await updateRecord(LAYOUT, selected.recordId, { _kat__Item_ID_QuickBooks: qboId });
           setSelected(p => ({ ...p, fieldData: { ...p.fieldData, _kat__Item_ID_QuickBooks: qboId } }));
